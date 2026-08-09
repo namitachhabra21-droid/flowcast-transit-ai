@@ -1,18 +1,122 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TransitPulse — Predictive Crowding</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#080b12" />
+  <title>Flowcast — Predictive Transit Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="ambient"></div>
+  <aside class="sidebar">
+    <a class="logo" href="#"><i><span></span></i><div><strong>flowcast</strong><small>TRANSIT AI</small></div></a>
+    <nav>
+      <button class="nav active" data-view="network" aria-label="Network overview"><i>⌘</i><span>Network</span></button>
+      <button class="nav" data-view="forecast" aria-label="Crowd forecast"><i>⌁</i><span>Forecast</span></button>
+      <button class="nav" data-view="routes" aria-label="Routes"><i>⇄</i><span>Routes</span></button>
+      <button class="nav" data-view="alerts" aria-label="Alerts"><i>◉</i><span>Alerts</span><b>3</b></button>
+    </nav>
+    <div class="side-bottom"><button class="nav"><i>?</i><span>Support</span></button><button class="nav"><i>⚙</i><span>Settings</span></button><div class="avatar">AK</div></div>
+  </aside>
+
+  <div class="app-shell">
+    <header class="topbar">
+      <button class="mobile-menu" id="menuBtn">☰</button>
+      <div class="city-picker"><span>CITY NETWORK</span><button id="cityBtn"><i></i><b id="cityName">Delhi NCR</b><em>⌄</em></button><div class="city-menu" id="cityMenu"><button data-city="Delhi NCR">Delhi NCR</button><button data-city="Mumbai MMR">Mumbai MMR</button><button data-city="Bengaluru">Bengaluru</button><button data-city="Hyderabad">Hyderabad</button></div></div>
+      <div class="live"><i></i><span>Live data connected</span><b>2.4M</b><span>events today</span></div>
+      <div class="top-actions"><button class="search" id="searchBtn">⌕ <span>Search station or route</span><kbd>⌘ K</kbd></button><button class="round">♢<em>3</em></button><button class="profile">AK</button></div>
+    </header>
+
+    <main>
+      <section class="view" data-section="network">
+        <div class="page-head"><div><span class="eyebrow">LIVE OPERATIONS</span><h1>Good morning, Ananya.</h1><p>Your network is moving well. Here’s what needs attention next.</p></div><div class="head-controls"><button class="ghost">Today, 8 Aug <span>⌄</span></button><button class="primary" id="generateBtn">✦ Generate operations brief</button></div></div>
+        <div class="ai-brief"><div class="brief-orb">✦</div><div><span>FLOWCAST COPILOT · LIVE BRIEFING</span><p><b>Evening peak is forming 18 minutes early.</b> Demand near Rajiv Chowk and Kashmere Gate is accelerating faster than the Friday baseline.</p></div><div class="brief-signal"><span>NETWORK PRESSURE</span><b><i></i> Elevated</b></div><button id="simulateBtn">Run scenario <em>→</em></button></div>
+        <div class="summary-grid">
+          <article><div class="stat-icon cyan">↗</div><div><span>PASSENGERS TODAY</span><strong id="passengerCount">1.84M</strong><small class="positive">↑ 8.2% vs last Friday</small></div><svg viewBox="0 0 100 35"><path d="M0 31Q12 29 20 24T39 26T58 14T75 18T100 3"/></svg></article>
+          <article><div class="stat-icon purple">◌</div><div><span>AVG. CROWD LEVEL</span><strong>64%</strong><small>Moderate across network</small></div><div class="mini-ring"><i></i><b>64</b></div></article>
+          <article><div class="stat-icon orange">!</div><div><span>HIGH-RISK STATIONS</span><strong>7</strong><small class="warning">3 critical in next 30 min</small></div><div class="faces"><i>ND</i><i>RK</i><i>+5</i></div></article>
+          <article><div class="stat-icon green">⌁</div><div><span>MODEL ACCURACY</span><strong>94.6%</strong><small class="positive">↑ 1.4% this month</small></div><span class="ai-badge">AI</span></article>
+        </div>
+
+        <div class="network-grid">
+          <article class="map-panel">
+            <div class="panel-head"><div><span class="eyebrow">NETWORK DIGITAL TWIN</span><h2>Live crowd map <small><i></i><span id="mapClock">18:12:08</span></small></h2></div><div class="map-controls"><div class="mode-tabs" id="networkModes"><button class="active" data-mode="metro">Metro</button><button data-mode="bus">Bus</button><button data-mode="combined">Combined</button></div><button class="icon-button">⌖</button><button class="icon-button">⋮</button></div></div>
+            <div class="transit-map" id="transitMap">
+              <div class="map-grid"></div><span class="area-label cp">CONNAUGHT<br>PLACE</span><span class="area-label noida">NOIDA</span><span class="area-label gurugram">GURUGRAM</span><span class="area-label airport">AIRPORT</span>
+              <div class="time-scrubber"><button id="liveTime" class="active">LIVE</button><span><i id="scrubberFill"></i><b id="scrubberHandle"></b></span><em id="forecastOffset">Now</em><button id="playForecast">▶</button></div>
+              <svg viewBox="0 0 820 540" preserveAspectRatio="xMidYMid meet" aria-label="Interactive Delhi transit network">
+                <g class="route-lines">
+                  <path class="blue-line" d="M64 420 C140 392 176 338 234 324 S338 330 392 280 S485 173 540 172 S658 204 765 118"/>
+                  <path class="yellow-line" d="M162 50 C188 130 238 165 293 215 S375 298 438 337 S560 410 670 487"/>
+                  <path class="magenta-line" d="M85 270 C170 257 218 236 293 215 S442 212 526 244 S664 293 790 285"/>
+                  <path class="violet-line" d="M268 487 C290 411 313 368 392 280 S500 131 570 58"/>
+                  <path class="airport-line" d="M162 50 C247 89 318 117 403 157 S517 203 606 222"/>
+                </g>
+                <g class="bus-route-lines" id="busRoutes">
+                  <path class="bus-red" d="M72 116 C155 141 213 182 293 215 S431 274 526 244 S680 158 782 173"/>
+                  <path class="bus-teal" d="M93 458 C158 408 225 391 312 401 S489 445 575 397 S684 325 785 340"/>
+                  <path class="bus-orange" d="M126 72 C190 151 204 247 235 324 S288 438 352 492"/>
+                  <path class="bus-green" d="M706 72 C655 143 631 223 610 301 S581 438 634 493"/>
+                </g>
+                <g id="stations"></g>
+                <g id="busStops"></g>
+              </svg>
+              <div class="mode-summary" id="modeSummary"><i>Ⓜ</i><div><span>METRO NETWORK</span><b>286 trains · 94.6% on time</b></div><em>64% avg. load</em></div>
+              <div class="map-legend"><span><i class="quiet"></i>Comfortable</span><span><i class="busy"></i>Busy</span><span><i class="packed"></i>Very crowded</span><span><i class="critical"></i>Critical</span></div>
+              <div class="map-zoom"><button>+</button><button>−</button></div>
+              <div class="station-popover" id="stationPopover"><button id="closePopover">×</button><div class="pop-top"><span id="popLine">BLUE LINE</span><b id="popRisk">CRITICAL</b></div><h3 id="popName">Rajiv Chowk</h3><p id="popMeta">Interchange · 2 platforms</p><div class="pop-trend"><div><span>CROWD LOAD</span><b>↑ 18% in 30 min</b></div><svg viewBox="0 0 230 44" preserveAspectRatio="none"><path d="M0 38 C26 39 42 32 66 34 S105 23 129 26 S170 13 193 16 S213 8 230 4"/><path class="trend-fill" d="M0 38 C26 39 42 32 66 34 S105 23 129 26 S170 13 193 16 S213 8 230 4 L230 44 L0 44Z"/></svg></div><div class="crowd-meter"><span><i id="crowdBar"></i></span><b id="popCrowd">94%</b></div><div class="pop-stats"><div><span>NOW</span><b id="popNow">12.8k</b></div><div><span>IN 30 MIN</span><b id="popFuture">15.2k</b></div><div><span>WAIT TIME</span><b id="popWait">8 min</b></div></div><button id="stationDetail">View station intelligence →</button></div>
+            </div>
+          </article>
+
+          <aside class="prediction-panel">
+            <div class="panel-head"><div><span class="eyebrow">AI WATCHLIST</span><h2>Crowding forecast</h2></div><button class="text-btn">View all →</button></div>
+            <div class="forecast-tabs"><button class="active" data-time="30">Next 30 min</button><button data-time="60">1 hour</button><button data-time="120">2 hours</button></div>
+            <div class="watchlist" id="watchlist"></div>
+            <div class="prediction-note"><i>✦</i><p><b>AI insight</b><span>Yellow Line demand will peak 18 minutes earlier than usual due to the event at Central Secretariat.</span></p></div>
+          </aside>
+        </div>
+
+        <div class="lower-grid">
+          <article class="demand-panel"><div class="panel-head"><div><span class="eyebrow">24-HOUR OUTLOOK</span><h2>Network demand forecast</h2></div><div class="line-filter"><i></i><button>All lines ⌄</button></div></div><div class="demand-chart"><div class="peak-tag">EVENING PEAK<br><b>92%</b></div><svg viewBox="0 0 900 190" preserveAspectRatio="none"><defs><linearGradient id="demandFill" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#7b61ff" stop-opacity=".4"/><stop offset="1" stop-color="#7b61ff" stop-opacity="0"/></linearGradient></defs><path class="fill" d="M0 155 C70 152 95 130 155 138 S260 158 310 120 S387 42 450 51 S545 129 610 112 S700 40 760 25 S850 62 900 88 L900 190 L0 190Z"/><path class="demand-line" d="M0 155 C70 152 95 130 155 138 S260 158 310 120 S387 42 450 51 S545 129 610 112 S700 40 760 25 S850 62 900 88"/><line x1="760" y1="0" x2="760" y2="185"/></svg><div class="x-axis"><span>06:00</span><span>09:00</span><span>12:00</span><span>15:00</span><span>18:00</span><span>21:00</span><span>00:00</span></div></div></article>
+          <article class="recommend-panel"><div class="panel-head"><div><span class="eyebrow">SMART ACTIONS</span><h2>Recommended interventions</h2></div><span class="count">4 pending</span></div><div id="actionsList"></div></article>
+        </div>
+      </section>
+
+      <section class="view hidden" data-section="forecast">
+        <div class="page-head"><div><span class="eyebrow">PREDICTIVE INTELLIGENCE</span><h1>Crowd Forecast Studio</h1><p>Explore projected demand at every station, route and time horizon.</p></div><button class="primary" id="runModel">↻ Run latest model</button></div>
+        <div class="studio-toolbar"><label>MODE<select><option>All transit</option><option>Metro</option><option>Bus</option></select></label><label>DATE<input type="date" value="2026-08-08"></label><label>TIME<input type="time" value="18:30"></label><label>FORECAST HORIZON<select><option>Next 2 hours</option><option>Next 6 hours</option><option>Next 24 hours</option></select></label><div><span>MODEL CONFIDENCE</span><b>94.6%</b></div></div>
+        <div class="forecast-studio-grid"><article class="heatmap-card"><div class="panel-head"><div><span class="eyebrow">SYSTEM HEATMAP</span><h2>Predicted load by route</h2></div><span class="live-pill">● LIVE MODEL</span></div><div class="heatmap" id="heatmap"></div></article><aside class="peak-card"><span class="eyebrow">NEXT NETWORK PEAK</span><strong>18:42</strong><p>Expected system load</p><div class="big-ring"><span>91<small>%</small></span></div><div class="peak-data"><div><span>HOTTEST LINE</span><b>Yellow Line</b></div><div><span>BUSIEST STATION</span><b>Rajiv Chowk</b></div><div><span>EXPECTED RIDERS</span><b>284,000</b></div></div></aside></div>
+      </section>
+
+      <section class="view hidden" data-section="routes">
+        <div class="page-head"><div><span class="eyebrow">ROUTE PERFORMANCE</span><h1>Routes & Corridors</h1><p>Compare crowding, reliability and predicted demand across the network.</p></div><button class="primary">+ Add monitored corridor</button></div>
+        <div class="route-table"><div class="table-head"><span>ROUTE</span><span>LIVE LOAD</span><span>30-MIN FORECAST</span><span>RELIABILITY</span><span>STATUS</span><span></span></div><div id="routeRows"></div></div>
+      </section>
+
+      <section class="view hidden" data-section="alerts">
+        <div class="page-head"><div><span class="eyebrow">OPERATIONS CENTER</span><h1>Alerts & Interventions</h1><p>Prioritize capacity risks and coordinate network response.</p></div><button class="primary" id="markRead">✓ Mark all reviewed</button></div>
+        <div class="alerts-layout"><article class="alerts-list"><div class="panel-head"><h2>Active alerts</h2><div class="mode-tabs"><button class="active">All</button><button>Critical</button><button>Watching</button></div></div><div id="alertsList"></div></article><aside class="alert-detail"><span class="eyebrow">SELECTED ALERT</span><div class="critical-pill">CRITICAL · 8 MIN AGO</div><h2>Rajiv Chowk capacity breach predicted</h2><p>Platform 2 is forecast to exceed safe operating capacity between 18:34 and 18:58.</p><div class="alert-impact"><div><span>PROJECTED LOAD</span><b>112%</b></div><div><span>AFFECTED RIDERS</span><b>8,420</b></div></div><h3>Recommended response</h3><label><input type="checkbox"> Deploy platform marshals</label><label><input type="checkbox"> Hold two additional trains</label><label><input type="checkbox"> Trigger passenger advisory</label><button class="primary full" id="executePlan">Execute response plan →</button></aside></div>
+      </section>
+    </main>
+  </div>
+
+  <div class="command-modal" id="commandModal"><div><div class="command-head"><span>⌕</span><input id="commandInput" placeholder="Search station, route or action..."><kbd>ESC</kbd></div><p>QUICK NAVIGATION</p><button data-command="station">◉ <span><b>Rajiv Chowk</b><small>Station · Blue & Yellow Line</small></span><em>↵</em></button><button data-command="forecast">⌁ <span><b>Open forecast studio</b><small>View crowd predictions</small></span><em>↵</em></button><button data-command="alerts">! <span><b>View critical alerts</b><small>3 require attention</small></span><em>↵</em></button></div></div>
+  <div class="simulator-backdrop" id="simulatorBackdrop"></div>
+  <aside class="simulator" id="simulator">
+    <div class="sim-head"><div><span class="eyebrow">AI SCENARIO LAB</span><h2>Demand simulator</h2><p>Stress-test the network before the crowd arrives.</p></div><button id="closeSimulator">×</button></div>
+    <div class="scenario-score"><div><span>PREDICTED NETWORK LOAD</span><strong id="scenarioLoad">84%</strong><small id="scenarioChange">+20% from baseline</small></div><div class="scenario-ring"><span id="ringValue">84</span></div></div>
+    <label class="sim-field"><span>SCENARIO</span><select id="scenarioType"><option value="event">Large public event</option><option value="weather">Heavy rainfall</option><option value="disruption">Line disruption</option><option value="baseline">Normal operations</option></select></label>
+    <label class="range-field"><span><b>EXPECTED ATTENDANCE</b><em id="attendanceValue">42,000 people</em></span><input id="attendanceRange" type="range" min="5000" max="100000" value="42000" step="1000"></label>
+    <label class="range-field"><span><b>EVENT PROXIMITY</b><em id="proximityValue">1.8 km</em></span><input id="proximityRange" type="range" min="1" max="10" value="3"></label>
+    <div class="affected-lines"><span>AFFECTED CORRIDORS</span><div><button class="selected"><i class="yellow"></i>Yellow</button><button class="selected"><i class="blue"></i>Blue</button><button><i class="violet"></i>Violet</button></div></div>
+    <div class="sim-result"><i>✦</i><p><b>Model recommendation</b><span id="simRecommendation">Add 3 trains to Yellow Line between 18:20–19:10 and deploy 14 additional platform marshals.</span></p></div>
+    <button class="primary full" id="applyScenario">Apply scenario to digital twin →</button>
+  </aside>
+  <div class="toast" id="toast"><i>✓</i><span>Action completed</span></div>
+  <script type="module" src="/app.js"></script>
+</body>
 </html>
