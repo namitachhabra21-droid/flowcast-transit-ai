@@ -1,0 +1,18 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+pydantic-settings==2.11.0
+
+# database + migrations
+sqlalchemy==2.0.51
+alembic==1.16.5
+psycopg2-binary==2.9.12
+
+# auth (Clerk session verification, API key hashing needs only stdlib)
+pyjwt[crypto]==2.13.0
+httpx==0.28.1
+
+# dev-only: zero-install embedded Postgres for local dev when a system
+# Postgres isn't available (no Docker per project scope). Not needed if you
+# point DATABASE_URL at a real local Postgres instance instead.
+pgserver==0.1.4
