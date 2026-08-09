@@ -5,7 +5,7 @@
 **Predictive transit intelligence — live crowd forecasting for metro and bus networks.**
 
 [![Live Demo](https://img.shields.io/badge/demo-live-1E8E5A?style=for-the-badge)](https://flowcast-transit-ai.vercel.app)
-[![Frontend](https://img.shields.io/badge/frontend-react%20%2B%20vite-61DAFB?style=flat-square)](#frontend--flowcast)
+[![Frontend](https://img.shields.io/badge/frontend-react%20%2B%20typescript%20%2B%20vite-2F80ED?style=flat-square)](#frontend--flowcast)
 [![Backend](https://img.shields.io/badge/backend-fastapi%20%2B%20postgres-009688?style=flat-square)](#backend--transitpulse-api)
 [![Auth](https://img.shields.io/badge/auth-clerk-6C47FF?style=flat-square)](#auth--multi-tenancy-design)
 
@@ -60,6 +60,11 @@ crowding forecast panel, route performance, operational alerts, and a
 demand scenario simulator. Runs entirely on local representative data —
 no backend calls.
 
+**Stack:** React 18 · TypeScript · Vite · CSS · SVG
+
+The interface uses a high-contrast black and electric-blue operations
+theme. Amber and red are reserved for crowd-severity communication.
+
 <details>
 <summary><strong>Run it locally</strong></summary>
 
@@ -71,7 +76,7 @@ npm install
 npm run dev
 ```
 
-Opens at `http://localhost:5174` (pinned in `vite.config.js` to avoid
+Opens at `http://localhost:5174` (pinned in `vite.config.ts` to avoid
 colliding with other local projects on the default Vite ports).
 
 ```bash
@@ -271,8 +276,16 @@ the minimum role they need via `require_role(...)`.
 
 ```
 transit-crowding/
-  frontend/                   # Flowcast — deployed dashboard (Vite, vanilla JS)
-    app.js, index.html, styles.css
+  frontend/                   # Flowcast — React + TypeScript dashboard
+    src/
+      App.tsx                 # React application root
+      LiveMetrics.tsx         # live counters and network clock
+      legacyInteractions.ts   # dashboard interaction layer being migrated
+      main.tsx                # React/Vite entry point
+    index.html
+    styles.css
+    vite.config.ts
+    tsconfig.json
   backend/                   # TransitPulse — multi-tenant API (local dev only)
     app/
       main.py                 # FastAPI app factory, router mounts, CORS
