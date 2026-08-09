@@ -1,3 +1,8 @@
+// TODO: progressively replace this DOM interaction layer with typed React
+// components. It remains TypeScript source during the screen-by-screen migration.
+// @ts-nocheck
+export {}
+
 const stations = [
   {name:'Rajiv Chowk',line:'BLUE · YELLOW',x:293,y:215,crowd:94,now:'12.8k',future:'15.2k',wait:'8 min',level:'critical'},
   {name:'Kashmere Gate',line:'YELLOW · VIOLET',x:392,y:280,crowd:87,now:'9.4k',future:'11.8k',wait:'6 min',level:'packed'},
