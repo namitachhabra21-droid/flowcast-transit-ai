@@ -1,3 +1,8 @@
+// TODO: progressively replace this DOM interaction layer with typed React
+// components. It remains TypeScript source during the screen-by-screen migration.
+// @ts-nocheck
+export {}
+
 const stations = [
   {name:'Rajiv Chowk',line:'BLUE · YELLOW',x:293,y:215,crowd:94,now:'12.8k',future:'15.2k',wait:'8 min',level:'critical'},
   {name:'Kashmere Gate',line:'YELLOW · VIOLET',x:392,y:280,crowd:87,now:'9.4k',future:'11.8k',wait:'6 min',level:'packed'},
@@ -109,5 +114,3 @@ document.querySelector('#playForecast').addEventListener('click',event=>{
   forecastTimer=setInterval(()=>{forecastProgress+=2;document.querySelector('#scrubberFill').style.width=`${forecastProgress}%`;document.querySelector('#scrubberHandle').style.left=`${forecastProgress}%`;document.querySelector('#forecastOffset').textContent=forecastProgress<4?'Now':`+${Math.round(forecastProgress*1.2)} min`;if(forecastProgress>=100){clearInterval(forecastTimer);event.currentTarget.textContent='▶'}},75)
 });
 document.querySelector('#liveTime').addEventListener('click',()=>{clearInterval(forecastTimer);forecastProgress=0;document.querySelector('#scrubberFill').style.width='0';document.querySelector('#scrubberHandle').style.left='0';document.querySelector('#forecastOffset').textContent='Now';document.querySelector('#playForecast').textContent='▶'});
-setInterval(()=>{document.querySelector('#mapClock').textContent=new Date().toLocaleTimeString('en-IN',{hour12:false});},1000);
-let riders=1840000;setInterval(()=>{riders+=Math.floor(Math.random()*8)+2;document.querySelector('#passengerCount').textContent=`${(riders/1000000).toFixed(2)}M`;},3500);
