@@ -109,5 +109,3 @@ document.querySelector('#playForecast').addEventListener('click',event=>{
   forecastTimer=setInterval(()=>{forecastProgress+=2;document.querySelector('#scrubberFill').style.width=`${forecastProgress}%`;document.querySelector('#scrubberHandle').style.left=`${forecastProgress}%`;document.querySelector('#forecastOffset').textContent=forecastProgress<4?'Now':`+${Math.round(forecastProgress*1.2)} min`;if(forecastProgress>=100){clearInterval(forecastTimer);event.currentTarget.textContent='▶'}},75)
 });
 document.querySelector('#liveTime').addEventListener('click',()=>{clearInterval(forecastTimer);forecastProgress=0;document.querySelector('#scrubberFill').style.width='0';document.querySelector('#scrubberHandle').style.left='0';document.querySelector('#forecastOffset').textContent='Now';document.querySelector('#playForecast').textContent='▶'});
-setInterval(()=>{document.querySelector('#mapClock').textContent=new Date().toLocaleTimeString('en-IN',{hour12:false});},1000);
-let riders=1840000;setInterval(()=>{riders+=Math.floor(Math.random()*8)+2;document.querySelector('#passengerCount').textContent=`${(riders/1000000).toFixed(2)}M`;},3500);
