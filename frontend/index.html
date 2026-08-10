@@ -24,16 +24,9 @@
   </aside>
 
   <div class="app-shell">
-    <header class="topbar">
-      <button class="mobile-menu" id="menuBtn">☰</button>
-      <div class="city-picker"><span>CITY NETWORK</span><button id="cityBtn"><i></i><b id="cityName">Delhi NCR</b><em>⌄</em></button><div class="city-menu" id="cityMenu"><button data-city="Delhi NCR">Delhi NCR</button><button data-city="Mumbai MMR">Mumbai MMR</button><button data-city="Bengaluru">Bengaluru</button><button data-city="Hyderabad">Hyderabad</button></div></div>
-      <div class="live" id="reactLiveStatus"></div>
-      <div class="top-actions"><button class="search" id="searchBtn">⌕ <span>Search station or route</span><kbd>⌘ K</kbd></button><button class="round" id="notificationBtn">♢<em id="notificationCount">3</em></button><button class="profile" id="profileBtn">AK</button></div>
-    </header>
-
     <main>
       <section class="view" data-section="network">
-        <div class="page-head"><div><h1>Good morning, Ananya.</h1><p>Your network is moving well. Here’s what needs attention next.</p></div><div class="head-controls"><button class="ghost" id="dateBtn">Today, 11 Aug <span>⌄</span></button><button class="primary" id="generateBtn">✦ Generate operations brief</button></div></div>
+        <div class="page-head"><div><h1>Good morning.</h1><p>Your network is moving well. Here’s what needs attention next.</p></div><div class="head-controls"><button class="ghost" id="dateBtn">Today, 11 Aug <span>⌄</span></button><button class="primary" id="generateBtn">✦ Generate operations brief</button></div></div>
         <div class="primary-usecase-grid">
         <article class="hero-route-planner">
           <div class="route-planner-copy">
@@ -94,8 +87,8 @@
         <div class="ai-brief"><div class="brief-orb">✦</div><div><span>FLOWCAST COPILOT · LIVE BRIEFING</span><p><b>Evening peak is forming 18 minutes early.</b> Demand near Rajiv Chowk and Kashmere Gate is accelerating faster than the Friday baseline.</p></div><div class="brief-signal"><span>NETWORK PRESSURE</span><b><i></i> Elevated</b></div><button id="simulateBtn">Run scenario <em>→</em></button></div>
         <div class="summary-grid">
           <article><div class="stat-icon cyan">↗</div><div><span>PASSENGERS TODAY</span><strong id="reactPassengerCount"></strong><small class="positive">↑ 8.2% vs last Friday</small></div><svg viewBox="0 0 100 35"><path d="M0 31Q12 29 20 24T39 26T58 14T75 18T100 3"/></svg></article>
-          <article><div class="stat-icon purple">◌</div><div><span>AVG. CROWD LEVEL</span><strong>64%</strong><small>Moderate across network</small></div><div class="mini-ring"><i></i><b>64</b></div></article>
-          <article><div class="stat-icon orange">!</div><div><span>HIGH-RISK STATIONS</span><strong>7</strong><small class="warning">3 critical in next 30 min</small></div><div class="faces"><i>ND</i><i>RK</i><i>+5</i></div></article>
+          <article><div class="stat-icon purple">◌</div><div><span>AVG. CROWD LEVEL</span><strong id="avgCrowdLevel">64%</strong><small id="avgCrowdNote">Moderate across network</small></div><div class="mini-ring" id="avgCrowdRing"><i></i><b>64</b></div></article>
+          <article><div class="stat-icon orange">!</div><div><span>HIGH-RISK STATIONS</span><strong id="highRiskCount">7</strong><small class="warning" id="highRiskNote">3 critical in next 30 min</small></div><div class="faces"><i>ND</i><i>RK</i><i>+5</i></div></article>
           <article><div class="stat-icon green">⌁</div><div><span>MODEL ACCURACY</span><strong>94.6%</strong><small class="positive">↑ 1.4% this month</small></div><span class="ai-badge">AI</span></article>
         </div>
 

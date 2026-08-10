@@ -65,3 +65,17 @@ main{padding-top:14px}
 
 /* Light, readable station detail popover */
 .station-popover{background:#fffffff5;border-color:#cbd8e5;box-shadow:0 20px 50px #08182b40;color:#172235}.station-popover h3{color:#172235}.station-popover>p{color:#617287}.station-popover>button:first-child{color:#52647a;font-size:18px}.pop-trend{background:#f4f8fc;border-color:#d9e3ed}.pop-trend span,.pop-stats span{color:#687b91}.pop-stats{border-color:#dce4ed}.pop-stats div{border-color:#dce4ed}.pop-stats b{color:#1f3045}.crowd-meter>span{background:#dce5ee}.station-popover>button:last-child{background:#edf6fd;border-color:#bfd8eb;color:#1764ae;font-weight:700}
+
+/* Demand simulator (Run scenario) was still dark-theme text/chips on the new light panel */
+.scenario-score strong{color:#152033}.scenario-score span{color:#1764ae}.scenario-score small{color:#c0492f}.scenario-ring span{color:#fff}
+.affected-lines button{background:#fff;color:#5c6c81;border-color:#d5e0eb}.affected-lines button.selected{background:#eaf4fc;border-color:#b9d5ea;color:#172235}
+.sim-field select{border-color:#d5e0eb}.range-field em{color:#1764ae}.range-field b{color:#5c6c81}
+.sim-result b{color:#1764ae}.sim-result span{color:#5c6c81}.sim-result>i{color:#1764ae}
+
+/* Mobile top nav: icon+label no longer fits 4 items at phone widths — icon-only, like .side-bottom already does */
+@media(max-width:560px){.sidebar nav{overflow-x:visible}.nav span{display:none}.nav{flex:1;min-width:0;padding:0;justify-content:center}.nav i{font-size:25px}}
+
+/* Nav icons sized up relative to their labels for clearer visual weight */
+.sidebar .nav i{font-size:24px}.sidebar .nav span{font-size:11px}
+/* The ⌁ glyph (Forecast) has much less visual weight than ⌘/⇄/◉ at the same font-size — bump it to match */
+.sidebar .nav[data-view="forecast"] i{font-size:38px}

@@ -32,13 +32,28 @@ stations.forEach((s,i)=>{const g=document.createElementNS('http://www.w3.org/200
 const busLayer=document.querySelector('#busStops');
 busStops.forEach((s,i)=>{const g=document.createElementNS('http://www.w3.org/2000/svg','g');g.classList.add('bus-stop',s.level);if([0,1,2,4].includes(i))g.classList.add('interchange');g.dataset.index=i;g.setAttribute('transform',`translate(${s.x} ${s.y})`);g.innerHTML=`<rect class="bus-halo" x="-15" y="-15" width="30" height="30" rx="8"/><rect class="bus-node" x="-6" y="-6" width="12" height="12" rx="3"/><circle class="core" r="2"/><text class="station-label bus-label" x="12" y="-10">${s.name}</text>`;g.addEventListener('click',()=>selectStation(i,'bus'));busLayer.appendChild(g)});
 
-function selectStation(index,type='metro'){const source=type==='bus'?busStops:stations;const s=source[index];document.querySelectorAll('.station,.bus-stop').forEach(n=>n.classList.remove('selected'));document.querySelectorAll(type==='bus'?'.bus-stop':'.station')[index]?.classList.add('selected');const pop=document.querySelector('#stationPopover');const riskBadge=document.querySelector('#popRisk');document.querySelector('#popLine').textContent=type==='bus'?s.line:s.line+' LINE';document.querySelector('#popName').textContent=s.name;document.querySelector('#popMeta').textContent=s.meta||(type==='bus'?'Bus interchange':'Interchange · 2 platforms');riskBadge.textContent=s.level==='critical'?'CRITICAL':s.level==='packed'?'VERY CROWDED':s.level.toUpperCase();riskBadge.className=`pop-risk-${s.level}`;document.querySelector('#popCrowd').textContent=s.crowd+'%';document.querySelector('#crowdBar').style.width=s.crowd+'%';document.querySelector('#crowdBar').className=s.level;document.querySelector('#popNow').textContent=s.now;document.querySelector('#popFuture').textContent=s.future;document.querySelector('#popWait').textContent=s.wait;pop.classList.add('open')}
+let selectedStation=null;
+function selectStation(index,type='metro'){selectedStation={index,type};const source=type==='bus'?busStops:stations;const s=source[index];document.querySelectorAll('.station,.bus-stop').forEach(n=>n.classList.remove('selected'));document.querySelectorAll(type==='bus'?'.bus-stop':'.station')[index]?.classList.add('selected');const pop=document.querySelector('#stationPopover');const riskBadge=document.querySelector('#popRisk');document.querySelector('#popLine').textContent=type==='bus'?s.line:s.line+' LINE';document.querySelector('#popName').textContent=s.name;document.querySelector('#popMeta').textContent=s.meta||(type==='bus'?'Bus interchange':'Interchange · 2 platforms');riskBadge.textContent=s.level==='critical'?'CRITICAL':s.level==='packed'?'VERY CROWDED':s.level.toUpperCase();riskBadge.className=`pop-risk-${s.level}`;document.querySelector('#popCrowd').textContent=s.crowd+'%';document.querySelector('#crowdBar').style.width=s.crowd+'%';document.querySelector('#crowdBar').className=s.level;document.querySelector('#popNow').textContent=s.now;document.querySelector('#popFuture').textContent=s.future;document.querySelector('#popWait').textContent=s.wait;pop.classList.add('open')}
 
-const watchData=[{name:'Rajiv Chowk',line:'Blue · Yellow',risk:94,delta:'+18%',time:'18 min'},{name:'Kashmere Gate',line:'Yellow · Violet',risk:87,delta:'+12%',time:'24 min'},{name:'New Delhi',line:'Yellow · Airport',risk:79,delta:'+9%',time:'31 min'},{name:'Central Secretariat',line:'Yellow · Violet',risk:74,delta:'+7%',time:'38 min'}];
-const busWatch=[{name:'ISBT Kashmere Gate',line:'Bus 729 · 753',risk:91,delta:'+16%',time:'14 min',index:0},{name:'Anand Vihar ISBT',line:'Bus 543 · 740',risk:88,delta:'+14%',time:'22 min',index:4},{name:'Connaught Place',line:'Bus 522 · 894',risk:83,delta:'+11%',time:'29 min',index:1},{name:'AIIMS',line:'Bus 534 · 615',risk:76,delta:'+8%',time:'35 min',index:2}];
-const combinedWatch=[{name:'Kashmere Gate Hub',line:'Metro + Bus interchange',risk:97,delta:'+21%',time:'12 min',index:1,type:'metro'},{name:'Rajiv Chowk / CP',line:'Metro + Bus interchange',risk:95,delta:'+19%',time:'17 min',index:0,type:'metro'},{name:'Anand Vihar Hub',line:'Metro + Interstate bus',risk:89,delta:'+15%',time:'23 min',index:4,type:'bus'},{name:'AIIMS Corridor',line:'Metro + Bus transfer',risk:81,delta:'+10%',time:'31 min',index:2,type:'bus'}];
 let currentNetworkMode='metro';
-function renderWatch(multiplier=1){const data=currentNetworkMode==='bus'?busWatch:currentNetworkMode==='combined'?combinedWatch:watchData;document.querySelector('#watchlist').innerHTML=data.map((w,i)=>{const risk=Math.min(99,Math.round(w.risk*multiplier));return `<button class="watch-row" data-station="${w.index??i}" data-type="${w.type||(currentNetworkMode==='bus'?'bus':'metro')}"><span class="risk-num ${risk>89?'critical':risk>78?'packed':'busy'}">${risk}</span><span><b>${w.name}</b><small><i class="line-dot ${currentNetworkMode}"></i>${w.line}</small></span><em>${w.delta}<small>in ${w.time}</small></em><strong>→</strong></button>`}).join('');document.querySelectorAll('.watch-row').forEach(r=>r.addEventListener('click',()=>{selectStation(+r.dataset.station,r.dataset.type);document.querySelector('#transitMap').scrollIntoView({behavior:'smooth',block:'center'})}))}
+function estimateWaitTime(crowd){return `${Math.max(3,Math.round(45-crowd*0.35))} min`}
+function watchSourceForMode(){
+  if(currentNetworkMode==='bus') return busStops.map((s,i)=>({...s,_index:i,_type:'bus'}));
+  if(currentNetworkMode==='combined') return [...stations.map((s,i)=>({...s,_index:i,_type:'metro'})),...busStops.map((s,i)=>({...s,_index:i,_type:'bus'}))];
+  return stations.map((s,i)=>({...s,_index:i,_type:'metro'}));
+}
+/* Watchlist is derived live from the same stations/busStops the map reads —
+   one source of truth, so the map dot, popover and this list can never
+   show contradictory numbers for the same station. */
+function renderWatch(multiplier=1){
+  const top=watchSourceForMode().sort((a,b)=>b.crowd-a.crowd).slice(0,4);
+  document.querySelector('#watchlist').innerHTML=top.map(s=>{
+    const risk=Math.min(99,Math.round(s.crowd*multiplier));
+    const delta=s._delta||0;
+    return `<button class="watch-row" data-station="${s._index}" data-type="${s._type}"><span class="risk-num ${risk>88?'critical':risk>75?'packed':'busy'}">${risk}</span><span><b>${s.name}</b><small><i class="line-dot ${s._type==='bus'?'bus':''}"></i>${s.line}</small></span><em>${delta>=0?'+':''}${delta}%<small>in ${estimateWaitTime(s.crowd)}</small></em><strong>→</strong></button>`;
+  }).join('');
+  document.querySelectorAll('.watch-row').forEach(r=>r.addEventListener('click',()=>{selectStation(+r.dataset.station,r.dataset.type);document.querySelector('#transitMap').scrollIntoView({behavior:'smooth',block:'center'})}));
+}
 renderWatch();
 
 const modeContent={
@@ -82,15 +97,12 @@ document.querySelectorAll('[data-action]').forEach(b=>b.addEventListener('click'
 document.querySelector('#closePopover').addEventListener('click',()=>document.querySelector('#stationPopover').classList.remove('open'));
 document.querySelector('#stationDetail').addEventListener('click',()=>switchView('forecast'));
 
-const cityBtn=document.querySelector('#cityBtn'),cityMenu=document.querySelector('#cityMenu');cityBtn.addEventListener('click',()=>cityMenu.classList.toggle('open'));document.querySelectorAll('#cityMenu button').forEach(b=>b.addEventListener('click',()=>{document.querySelector('#cityName').textContent=b.dataset.city;cityMenu.classList.remove('open');showToast(`${b.dataset.city} network loaded`)}));
-const modal=document.querySelector('#commandModal');function toggleSearch(open){modal.classList.toggle('open',open);if(open)setTimeout(()=>document.querySelector('#commandInput').focus(),100)}document.querySelector('#searchBtn').addEventListener('click',()=>toggleSearch(true));modal.addEventListener('click',e=>{if(e.target===modal)toggleSearch(false)});document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();toggleSearch(true)}if(e.key==='Escape')toggleSearch(false)});document.querySelectorAll('[data-command]').forEach(b=>b.addEventListener('click',()=>{toggleSearch(false);if(b.dataset.command==='station'){switchView('network');selectStation(0)}else switchView(b.dataset.command)}));
-document.querySelector('#generateBtn').addEventListener('click',e=>{e.currentTarget.innerHTML='✓ Brief generated';showToast('Operations brief is ready');setTimeout(()=>e.currentTarget.innerHTML='✦ Generate operations brief',1900)});document.querySelector('#runModel').addEventListener('click',e=>{e.currentTarget.textContent='Running model…';setTimeout(()=>{e.currentTarget.textContent='✓ Model updated';showToast('Latest ticketing data processed')},1100)});document.querySelector('#markRead').addEventListener('click',()=>showToast('All alerts marked as reviewed'));document.querySelector('#executePlan').addEventListener('click',()=>showToast('Response plan sent to operations teams'));document.querySelector('#menuBtn').addEventListener('click',()=>document.querySelector('.sidebar').classList.toggle('mobile-open'));
+const modal=document.querySelector('#commandModal');function toggleSearch(open){modal.classList.toggle('open',open);if(open)setTimeout(()=>document.querySelector('#commandInput').focus(),100)}modal.addEventListener('click',e=>{if(e.target===modal)toggleSearch(false)});document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();toggleSearch(true)}if(e.key==='Escape')toggleSearch(false)});document.querySelectorAll('[data-command]').forEach(b=>b.addEventListener('click',()=>{toggleSearch(false);if(b.dataset.command==='station'){switchView('network');selectStation(0)}else switchView(b.dataset.command)}));
+document.querySelector('#generateBtn').addEventListener('click',e=>{e.currentTarget.innerHTML='✓ Brief generated';showToast('Operations brief is ready');setTimeout(()=>e.currentTarget.innerHTML='✦ Generate operations brief',1900)});document.querySelector('#runModel').addEventListener('click',e=>{e.currentTarget.textContent='Running model…';setTimeout(()=>{e.currentTarget.textContent='✓ Model updated';showToast('Latest ticketing data processed')},1100)});document.querySelector('#markRead').addEventListener('click',()=>showToast('All alerts marked as reviewed'));document.querySelector('#executePlan').addEventListener('click',()=>showToast('Response plan sent to operations teams'));
 function showToast(message){const t=document.querySelector('#toast');t.querySelector('span').textContent=message;t.classList.add('show');clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>t.classList.remove('show'),2400)}
 
 /* Complete the remaining dashboard controls with useful demo behavior. */
 document.querySelector('#viewAllForecastBtn').addEventListener('click',()=>switchView('forecast'));
-document.querySelector('#notificationBtn').addEventListener('click',()=>switchView('alerts'));
-document.querySelector('#profileBtn').addEventListener('click',()=>showToast('Signed in as Ananya Kapoor · Operations Lead'));
 document.querySelector('#dateBtn').addEventListener('click',e=>{e.currentTarget.innerHTML=e.currentTarget.textContent.includes('Today')?'Tomorrow, 12 Aug <span>⌄</span>':'Today, 11 Aug <span>⌄</span>';showToast('Dashboard timeline updated')});
 
 let mapScale=1;
@@ -108,7 +120,7 @@ document.querySelectorAll('#forecastControls select,#forecastControls input').fo
 document.querySelector('#addCorridorBtn').addEventListener('click',()=>{const name=`Special Corridor ${routes.length-4}`;routes.push({name,color:'#56ccf2',from:'New Delhi → Central Secretariat',load:52,next:66,reliability:'95.0%',status:'Monitoring'});renderRoutes();showToast(`${name} added to monitoring`)});
 
 document.querySelectorAll('.alerts-list .mode-tabs button').forEach(button=>button.addEventListener('click',()=>renderAlerts(button.textContent.trim().toLowerCase())));
-document.querySelector('#markRead').addEventListener('click',event=>{document.querySelector('#notificationCount').textContent='0';document.querySelectorAll('.alert-row').forEach(row=>row.classList.add('reviewed'));event.currentTarget.textContent='✓ All reviewed'});
+document.querySelector('#markRead').addEventListener('click',event=>{document.querySelectorAll('.alert-row').forEach(row=>row.classList.add('reviewed'));event.currentTarget.textContent='✓ All reviewed'});
 document.querySelector('#executePlan').addEventListener('click',()=>{const checked=[...document.querySelectorAll('.alert-detail input:checked')];if(!checked.length){showToast('Select at least one response action first');return}showToast(`${checked.length} response action${checked.length>1?'s':''} dispatched`)});
 
 const commandInput=document.querySelector('#commandInput');
@@ -151,7 +163,9 @@ document.querySelector('#liveTime').addEventListener('click',()=>{clearInterval(
 /* ---- Journey planner: real source -> destination route recommendation, ----
    calling the FastAPI backend's POST /recommend-route. Everything above
    this point in the file is unchanged. */
-const ML_BACKEND_URL='http://localhost:8000'; // update once a backend is deployed publicly
+const ML_BACKEND_URL=location.hostname==='localhost'||location.hostname==='127.0.0.1'
+  ?'http://localhost:8000'
+  :'https://transit-crowding-backend.onrender.com';
 
 const JOURNEY_LINE_COLORS={'Blue Line':'#3b82f6','Yellow Line':'#f5c94a','Violet Line':'#8b5cf6','Magenta Line':'#e653a8','Airport Express':'#f59e0b'};
 
@@ -291,3 +305,84 @@ findRouteBtn.addEventListener('click',()=>{
 document.querySelectorAll('.nav[data-view]').forEach(n=>n.addEventListener('click',()=>{
   if(n.dataset.view!=='network') stopJourneyPolling();
 }));
+
+/* ---- Live data engine: periodic realistic drift across stations, buses ----
+   and routes, driving the map, watchlist, summary stats, route table and
+   an open popover from ONE source of truth (stations/busStops/routes) so
+   nothing can show contradictory numbers. Everything above reads from the
+   same arrays this mutates. */
+function driftCrowd(current){return Math.max(8,Math.min(99,current+Math.round((Math.random()-0.5)*12)))}
+function levelFor(crowd){if(crowd>88)return'critical';if(crowd>75)return'packed';if(crowd>45)return'busy';return'quiet'}
+
+function driftStopList(list,layer,scale){
+  list.forEach((s,i)=>{
+    const prev=s.crowd;
+    s.crowd=driftCrowd(s.crowd);
+    s._delta=prev?Math.round(((s.crowd-prev)/prev)*100):0;
+    s.level=levelFor(s.crowd);
+    const base=s.crowd*scale;
+    s.now=`${(base/1000).toFixed(1)}k`;
+    s.future=`${(base*1.18/1000).toFixed(1)}k`;
+    s.wait=estimateWaitTime(s.crowd);
+    const node=layer.children[i];
+    if(node){node.classList.remove('quiet','busy','packed','critical');node.classList.add(s.level)}
+  });
+}
+
+function refreshPopoverIfOpen(){
+  const pop=document.querySelector('#stationPopover');
+  if(!selectedStation||!pop.classList.contains('open')) return;
+  const s=(selectedStation.type==='bus'?busStops:stations)[selectedStation.index];
+  const riskBadge=document.querySelector('#popRisk');
+  riskBadge.textContent=s.level==='critical'?'CRITICAL':s.level==='packed'?'VERY CROWDED':s.level.toUpperCase();
+  riskBadge.className=`pop-risk-${s.level}`;
+  document.querySelector('#popCrowd').textContent=s.crowd+'%';
+  document.querySelector('#crowdBar').style.width=s.crowd+'%';
+  document.querySelector('#crowdBar').className=s.level;
+  document.querySelector('#popNow').textContent=s.now;
+  document.querySelector('#popFuture').textContent=s.future;
+  document.querySelector('#popWait').textContent=s.wait;
+}
+
+function refreshSummaryStats(){
+  const avg=Math.round(stations.reduce((sum,s)=>sum+s.crowd,0)/stations.length);
+  const highRisk=stations.filter(s=>s.level==='packed'||s.level==='critical').length;
+  const critical=stations.filter(s=>s.level==='critical').length;
+  document.querySelector('#avgCrowdLevel').textContent=avg+'%';
+  document.querySelector('#avgCrowdNote').textContent=avg>72?'Elevated across network':avg>45?'Moderate across network':'Comfortable across network';
+  const ring=document.querySelector('#avgCrowdRing');
+  ring.style.background=`conic-gradient(var(--purple) ${avg}%,#e4ecf5 0)`;
+  ring.querySelector('b').textContent=avg;
+  document.querySelector('#highRiskCount').textContent=highRisk;
+  document.querySelector('#highRiskNote').textContent=`${critical} critical in next 30 min`;
+}
+
+function refreshModeSummary(){
+  const avg=Math.round(stations.reduce((sum,s)=>sum+s.crowd,0)/stations.length);
+  const busAvg=Math.round(busStops.reduce((sum,s)=>sum+s.crowd,0)/busStops.length);
+  modeContent.metro.load=`${avg}% avg. load`;
+  modeContent.bus.load=`${busAvg}% avg. load`;
+  modeContent.combined.load=`${Math.round((avg+busAvg)/2)}% avg. load`;
+  const content=modeContent[currentNetworkMode];
+  document.querySelector('#modeSummary').innerHTML=`<i>${content.icon}</i><div><span>${content.label}</span><b>${content.detail}</b></div><em>${content.load}</em>`;
+}
+
+function refreshRoutesLive(){
+  routes.forEach(r=>{
+    r.load=driftCrowd(r.load);
+    r.next=Math.max(20,Math.min(99,r.load+Math.round((Math.random()-0.3)*14)));
+    r.status=r.next>90?'Critical soon':r.next>80?'High demand':r.next>65?'Watching':r.next>48?'Stable':'Comfortable';
+  });
+  renderRoutes();
+}
+
+function livePulse(){
+  driftStopList(stations,stationLayer,136);
+  driftStopList(busStops,busLayer,44);
+  renderWatch();
+  refreshSummaryStats();
+  refreshModeSummary();
+  refreshRoutesLive();
+  refreshPopoverIfOpen();
+}
+setInterval(livePulse,4500);

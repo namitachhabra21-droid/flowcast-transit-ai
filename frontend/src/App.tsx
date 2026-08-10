@@ -1,9 +1,8 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { LiveStatus, NetworkClock, PassengerCount } from './LiveMetrics'
+import { NetworkClock, PassengerCount } from './LiveMetrics'
 
 type PortalTargetId =
-  | 'reactLiveStatus'
   | 'reactPassengerCount'
   | 'reactMapClock'
 
@@ -22,7 +21,6 @@ export function App() {
 
   return (
     <>
-      {createPortal(<LiveStatus />, getPortalTarget('reactLiveStatus'))}
       {createPortal(<PassengerCount />, getPortalTarget('reactPassengerCount'))}
       {createPortal(<NetworkClock />, getPortalTarget('reactMapClock'))}
     </>
