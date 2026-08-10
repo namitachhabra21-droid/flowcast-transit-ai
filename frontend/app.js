@@ -111,3 +111,121 @@ document.querySelector('#playForecast').addEventListener('click',event=>{
 document.querySelector('#liveTime').addEventListener('click',()=>{clearInterval(forecastTimer);forecastProgress=0;document.querySelector('#scrubberFill').style.width='0';document.querySelector('#scrubberHandle').style.left='0';document.querySelector('#forecastOffset').textContent='Now';document.querySelector('#playForecast').textContent='▶'});
 setInterval(()=>{document.querySelector('#mapClock').textContent=new Date().toLocaleTimeString('en-IN',{hour12:false});},1000);
 let riders=1840000;setInterval(()=>{riders+=Math.floor(Math.random()*8)+2;document.querySelector('#passengerCount').textContent=`${(riders/1000000).toFixed(2)}M`;},3500);
+
+/* ---- Journey planner: real source -> destination route recommendation, ----
+   calling the FastAPI backend's POST /recommend-route. Everything above
+   this point in the file is unchanged. */
+const ML_BACKEND_URL='http://localhost:8000'; // update once a backend is deployed publicly
+
+const JOURNEY_LINE_COLORS={'Blue Line':'#3b82f6','Yellow Line':'#f5c94a','Violet Line':'#8b5cf6','Magenta Line':'#e653a8','Airport Express':'#f59e0b'};
+
+const sourceSelect=document.querySelector('#sourceStation');
+const destSelect=document.querySelector('#destStation');
+const journeyResultsTable=document.querySelector('#journeyResultsTable');
+const journeyRows=document.querySelector('#journeyRows');
+const journeyNote=document.querySelector('#journeyNote');
+const journeyNoteIcon=document.querySelector('#journeyNoteIcon');
+const journeyNoteTitle=document.querySelector('#journeyNoteTitle');
+const journeyNoteText=document.querySelector('#journeyNoteText');
+const findRouteBtn=document.querySelector('#findRouteBtn');
+
+function showJourneyNote(icon,title,text){journeyNote.classList.remove('hidden');journeyNoteIcon.textContent=icon;journeyNoteTitle.textContent=title;journeyNoteText.textContent=text}
+function hideJourneyNote(){journeyNote.classList.add('hidden')}
+
+async function loadStations(){
+  try{
+    const res=await fetch(`${ML_BACKEND_URL}/stations`);
+    if(!res.ok) throw new Error(`status ${res.status}`);
+    const list=await res.json();
+    const options=list.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+    sourceSelect.innerHTML=options;
+    destSelect.innerHTML=options;
+    if(list.length>1) destSelect.value=list[1].id;
+  }catch(err){
+    sourceSelect.innerHTML='<option>Backend unavailable</option>';
+    destSelect.innerHTML='<option>Backend unavailable</option>';
+    findRouteBtn.disabled=true;
+    showJourneyNote('!','Backend unavailable',`Couldn't load stations from ${ML_BACKEND_URL} — start the FastAPI backend (uvicorn app.main:app --port 8000) to use the journey planner.`);
+  }
+}
+loadStations();
+
+const JOURNEY_POLL_INTERVAL_MS=5000;
+let journeyPollTimer=null;
+
+function stopJourneyPolling(){
+  if(journeyPollTimer){clearInterval(journeyPollTimer);journeyPollTimer=null}
+}
+
+function renderJourneyResults(data){
+  journeyResultsTable.classList.remove('hidden');
+  journeyRows.innerHTML=data.evaluated_routes.map(r=>{
+    const isRecommended=r.route_id===data.recommended_route_id;
+    const color=JOURNEY_LINE_COLORS[r.route_name.split(' + ')[0]]||'#8390a2';
+    const statusClass=r.crowding_level==='HIGH'?'danger':r.crowding_level==='MEDIUM'?'warn':'';
+    const currentPct=Math.round((r.current_data.current_passenger_count/r.current_data.vehicle_capacity)*100);
+    const subtitle=(r.transfer_station?`Transfer at ${r.transfer_station}`:'Direct')+(isRecommended?' · Recommended':'');
+    return `<button class="route-row"><span><i style="background:${color}"></i><b>${r.route_name}</b><small>${subtitle}</small></span><span><b>${r.current_data.current_passenger_count}/${r.current_data.vehicle_capacity}</b><i class="loadbar"><em style="width:${currentPct}%"></em></i></span><span class="next-load">${r.predicted_occupancy_percentage}%</span><span>${r.estimated_travel_time_minutes} min</span><span><em class="status ${statusClass}">${r.crowding_level}</em></span><strong>${isRecommended?'★':'→'}</strong></button>`;
+  }).join('');
+  showJourneyNote('✦','Recommended route',data.recommendation_reason+' · Live, refreshes every 5s');
+}
+
+function buildDepartureTime(){
+  const timeValue=document.querySelector('#departTime').value;
+  if(!timeValue) return undefined;
+  const [h,m]=timeValue.split(':');
+  const d=new Date();
+  d.setHours(+h,+m,0,0);
+  return d.toISOString();
+}
+
+async function searchRoute(source,destination,{silent=false}={}){
+  if(!silent){
+    findRouteBtn.textContent='Finding routes…';
+    findRouteBtn.disabled=true;
+  }
+  try{
+    const departure_time=buildDepartureTime();
+    const res=await fetch(`${ML_BACKEND_URL}/recommend-route`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({source_station:source,destination_station:destination,...(departure_time?{departure_time}:{})})
+    });
+    const data=await res.json();
+    if(!res.ok){
+      showJourneyNote('!','Could not find a route',data.detail?JSON.stringify(data.detail):`Request failed with status ${res.status}`);
+      journeyResultsTable.classList.add('hidden');
+      stopJourneyPolling();
+      return;
+    }
+    renderJourneyResults(data);
+    if(!journeyPollTimer){
+      journeyPollTimer=setInterval(()=>searchRoute(source,destination,{silent:true}),JOURNEY_POLL_INTERVAL_MS);
+    }
+  }catch(err){
+    showJourneyNote('!','Backend unavailable',`Couldn't reach ${ML_BACKEND_URL} — make sure the FastAPI backend is running.`);
+    journeyResultsTable.classList.add('hidden');
+    stopJourneyPolling();
+  }finally{
+    if(!silent){
+      findRouteBtn.textContent='Find best route';
+      findRouteBtn.disabled=false;
+    }
+  }
+}
+
+findRouteBtn.addEventListener('click',()=>{
+  const source=sourceSelect.value;
+  const destination=destSelect.value;
+  stopJourneyPolling();
+  journeyResultsTable.classList.add('hidden');
+  hideJourneyNote();
+  if(!source||!destination){showJourneyNote('!','Select both stations','Pick a source and destination to find a route.');return}
+  if(source===destination){showJourneyNote('!','Pick two different stations','Source and destination must be different.');return}
+  searchRoute(source,destination);
+});
+
+// stop polling once the user leaves the Routes view, resume when they come back
+document.querySelectorAll('.nav[data-view]').forEach(n=>n.addEventListener('click',()=>{
+  if(n.dataset.view!=='routes') stopJourneyPolling();
+}));

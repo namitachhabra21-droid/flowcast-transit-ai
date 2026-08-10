@@ -94,6 +94,17 @@
 
       <section class="view hidden" data-section="routes">
         <div class="page-head"><div><span class="eyebrow">ROUTE PERFORMANCE</span><h1>Routes & Corridors</h1><p>Compare crowding, reliability and predicted demand across the network.</p></div><button class="primary">+ Add monitored corridor</button></div>
+
+        <div class="panel-head"><div><span class="eyebrow">JOURNEY PLANNER</span><h2>Find your best route</h2></div></div>
+        <div class="studio-toolbar">
+          <label>FROM<select id="sourceStation"></select></label>
+          <label>TO<select id="destStation"></select></label>
+          <label>DEPART<input type="time" id="departTime"></label>
+          <div><button class="primary full" id="findRouteBtn">Find best route</button></div>
+        </div>
+        <div class="route-table hidden" id="journeyResultsTable" style="margin-bottom:14px"><div class="table-head"><span>ROUTE</span><span>CURRENT LOAD</span><span>PREDICTED</span><span>EST. TIME</span><span>STATUS</span><span></span></div><div id="journeyRows"></div></div>
+        <div class="prediction-note hidden" id="journeyNote" style="margin-bottom:14px"><i id="journeyNoteIcon">✦</i><p><b id="journeyNoteTitle"></b><span id="journeyNoteText"></span></p></div>
+
         <div class="route-table"><div class="table-head"><span>ROUTE</span><span>LIVE LOAD</span><span>30-MIN FORECAST</span><span>RELIABILITY</span><span>STATUS</span><span></span></div><div id="routeRows"></div></div>
       </section>
 

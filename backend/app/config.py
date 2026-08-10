@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     clerk_issuer: str = ""
 
     frontend_origin: str = "http://localhost:3000"
+    # Additional origins allowed alongside frontend_origin (comma-separated).
+    # Flowcast's dev server runs on 5174 (see frontend/vite.config.js), and
+    # the deployed demo needs to be allowed too once it's wired to a live backend.
+    extra_cors_origins: str = "http://localhost:5174,https://flowcast-transit-ai.vercel.app"
 
     api_key_prefix: str = "tc"
 
