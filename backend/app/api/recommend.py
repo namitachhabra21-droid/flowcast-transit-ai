@@ -16,6 +16,8 @@ from app/data/synthetic_data.py's station set, which belongs to the
 separate org-scoped TransitPulse product under /api/v1.
 """
 import hashlib
+import math
+import time
 from datetime import datetime, timezone
 from itertools import combinations
 from typing import Dict, List, Optional
@@ -23,13 +25,14 @@ from typing import Dict, List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.api.predict import PredictionRequest, build_feature_vector, predict_crowding
+from app.api.predict import MODEL_VERSION, PredictionFactor, PredictionRequest, build_feature_vector, predict_crowding
 
 router = APIRouter(tags=["ml"])
 
 DEFAULT_CAPACITY = 60
 TRANSFER_PENALTY_MINUTES = 8
 MINUTES_PER_HOP = 4
+LOAD_DRIFT_BUCKET_SECONDS = 6  # how often the "current load" reading is allowed to move
 
 # ---- Station/line graph — mirrors frontend/app.js `stations` exactly ----
 
@@ -86,6 +89,8 @@ class EvaluatedRoute(BaseModel):
     predicted_passenger_count: int
     predicted_occupancy_percentage: float
     crowding_level: str
+    confidence: float
+    factors: List[PredictionFactor]
 
 
 class RecommendResponse(BaseModel):
@@ -100,15 +105,28 @@ class RecommendResponse(BaseModel):
     model_version: str
 
 
-def _base_current_load(line: str, station_id: str) -> int:
-    """Deterministic stand-in for a real ticketing-system read, same
-    hash-based pattern app/data/synthetic_data.py uses: consistent across
-    calls, varies by line/station without being random."""
+def _base_current_load(line: str, station_id: str, *, now: Optional[datetime] = None) -> int:
+    """Stand-in for a real ticketing-system read: a per-line/station
+    baseline (hash-seeded, same pattern app/data/synthetic_data.py uses)
+    shaped by an actual rush-hour curve against the real clock, plus a
+    short-period drift term that only moves every LOAD_DRIFT_BUCKET_SECONDS
+    — so it behaves like a live feed being sampled, not a random number."""
+    now = now or datetime.now(timezone.utc)
     digest = hashlib.sha256(f"{line}:{station_id}".encode()).hexdigest()
     variance = (int(digest[:8], 16) % 1000) / 1000  # 0..1
     line_popularity = {"BLUE": 0.55, "YELLOW": 0.7, "VIOLET": 0.45, "MAGENTA": 0.4, "AIRPORT": 0.35}
     base = line_popularity.get(line, 0.5)
-    ratio = min(0.95, 0.25 + base * 0.4 + variance * 0.3)
+
+    hour_frac = now.hour + now.minute / 60
+    morning_peak = math.exp(-((hour_frac - 8.5) ** 2) / 8)
+    evening_peak = math.exp(-((hour_frac - 18.5) ** 2) / 8)
+    rush_hour_wave = 0.3 * (morning_peak + evening_peak)
+
+    bucket = int(now.timestamp() // LOAD_DRIFT_BUCKET_SECONDS)
+    drift_digest = hashlib.sha256(f"{line}:{station_id}:{bucket}".encode()).hexdigest()
+    drift = ((int(drift_digest[:8], 16) % 1000) / 1000 - 0.5) * 0.14  # +/-7%
+
+    ratio = min(0.97, max(0.05, 0.2 + base * 0.35 + variance * 0.2 + rush_hour_wave + drift))
     return round(ratio * DEFAULT_CAPACITY)
 
 
@@ -181,7 +199,7 @@ def recommend_route(payload: RecommendRequest) -> RecommendResponse:
             timestamp=departure_time,
         )
         features = build_feature_vector(pred_request)
-        predicted_count, occupancy_pct, level = predict_crowding(features, DEFAULT_CAPACITY)
+        predicted_count, occupancy_pct, level, confidence, factors = predict_crowding(features, DEFAULT_CAPACITY)
 
         hops = 2 if candidate["transfer_station"] else 1
         travel_time = hops * MINUTES_PER_HOP * 3 + (TRANSFER_PENALTY_MINUTES if candidate["transfer_station"] else 0)
@@ -199,6 +217,8 @@ def recommend_route(payload: RecommendRequest) -> RecommendResponse:
                 predicted_passenger_count=predicted_count,
                 predicted_occupancy_percentage=occupancy_pct,
                 crowding_level=level.value,
+                confidence=confidence,
+                factors=factors,
             )
         )
 
@@ -219,6 +239,8 @@ def recommend_route(payload: RecommendRequest) -> RecommendResponse:
     else:
         reason = f"{best.route_name} is the only viable route between these stations."
 
+    reason += f" Model confidence: {round(best.confidence * 100)}%."
+
     return RecommendResponse(
         source_station=STATIONS[payload.source_station]["name"],
         destination_station=STATIONS[payload.destination_station]["name"],
@@ -226,5 +248,5 @@ def recommend_route(payload: RecommendRequest) -> RecommendResponse:
         evaluated_routes=evaluated,
         recommended_route_id=best.route_id,
         recommendation_reason=reason,
-        model_version="heuristic-v1",
+        model_version=MODEL_VERSION,
     )

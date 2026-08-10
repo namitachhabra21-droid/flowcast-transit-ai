@@ -145,7 +145,7 @@ function updateScenario(){
   document.querySelector('#scenarioLoad').textContent=`${load}%`;
   document.querySelector('#ringValue').textContent=load;
   document.querySelector('#scenarioChange').textContent=`+${Math.max(0,load-64)}% from baseline`;
-  document.querySelector('.scenario-ring').style.background=`conic-gradient(var(--orange) ${load}%,#252b38 0)`;
+  document.querySelector('.scenario-ring').style.background=`conic-gradient(var(--orange) ${load}%,#e8ccc0 0)`;
 }
 ['attendanceRange','proximityRange','scenarioType'].forEach(id=>document.querySelector(`#${id}`).addEventListener('input',updateScenario));
 document.querySelectorAll('.affected-lines button').forEach(button=>button.addEventListener('click',()=>button.classList.toggle('selected')));
@@ -227,7 +227,8 @@ function renderJourneyResults(data){
     const color=JOURNEY_LINE_COLORS[r.route_name.split(' + ')[0]]||'#8390a2';
     const statusClass=r.crowding_level==='HIGH'?'danger':r.crowding_level==='MEDIUM'?'warn':'';
     const currentPct=Math.round((r.current_data.current_passenger_count/r.current_data.vehicle_capacity)*100);
-    const subtitle=(r.transfer_station?`Transfer at ${r.transfer_station}`:'Direct')+(isRecommended?' · Recommended':'');
+    const confidencePct=r.confidence!=null?Math.round(r.confidence*100):null;
+    const subtitle=(r.transfer_station?`Transfer at ${r.transfer_station}`:'Direct')+(isRecommended?' · Recommended':'')+(confidencePct!=null?` · ${confidencePct}% model confidence`:'');
     return `<button class="route-row"><span><i style="background:${color}"></i><b>${r.route_name}</b><small>${subtitle}</small></span><span><b>${r.current_data.current_passenger_count}/${r.current_data.vehicle_capacity}</b><i class="loadbar"><em style="width:${currentPct}%"></em></i></span><span class="next-load">${r.predicted_occupancy_percentage}%</span><span>${r.estimated_travel_time_minutes} min</span><span><em class="status ${statusClass}">${r.crowding_level}</em></span><strong>${isRecommended?'★':'→'}</strong></button>`;
   }).join('');
   showJourneyNote('✦','Recommended route',data.recommendation_reason+' · Live, refreshes every 5s');
@@ -385,4 +386,5 @@ function livePulse(){
   refreshRoutesLive();
   refreshPopoverIfOpen();
 }
+livePulse();
 setInterval(livePulse,4500);
