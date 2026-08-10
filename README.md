@@ -137,7 +137,8 @@ createdb transit_crowding
 ```
 
 **Option B — zero-install embedded Postgres** (no brew/Docker required —
-`pgserver` is in `requirements.txt`):
+`pgserver` is in `requirements-dev.txt`, kept out of `requirements.txt` since
+it has no prebuilt wheel for every deploy platform):
 ```python
 # one-off, from backend/ with the venv active:
 python3 -c "
@@ -155,7 +156,7 @@ Then, from `backend/`:
 cp .env.example .env      # fill in DATABASE_URL (+ Clerk keys, see below)
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-dev.txt   # drop the second file if using Option A
 alembic upgrade head       # creates all tables
 ```
 

@@ -1,0 +1,9 @@
+# Dev-only extras, layered on top of requirements.txt:
+#   pip install -r requirements.txt -r requirements-dev.txt
+#
+# zero-install embedded Postgres for local dev when a system Postgres isn't
+# available (no Docker per project scope). Not needed in production or if you
+# point DATABASE_URL at a real Postgres instance instead. Has no prebuilt
+# wheel for every platform/Python version (e.g. Render's build image), so it
+# must stay out of requirements.txt.
+pgserver==0.1.4
