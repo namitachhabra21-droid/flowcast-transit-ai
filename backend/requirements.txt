@@ -11,7 +11,11 @@ psycopg2-binary==2.9.12
 # auth (Clerk session verification, API key hashing needs only stdlib)
 pyjwt[crypto]==2.13.0
 httpx==0.28.1
-pandas
-numpy
-scikit-learn
-joblib
+
+# trained-model inference (app/ml/inference.py) — pinned so a joblib model
+# trained against one sklearn/numpy/pandas version doesn't silently
+# unpickle differently on another
+pandas==2.2.3
+numpy==1.26.4
+scikit-learn==1.5.2
+joblib==1.4.2

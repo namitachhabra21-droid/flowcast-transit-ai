@@ -5,6 +5,8 @@ backend/.env
 backend/__pycache__/
 backend/**/__pycache__/
 backend/*.pyc
+# trained-model weight file (~750MB) — exceeds GitHub's 100MB limit, never commit directly
+backend/app/ml/artifacts/transit_crowding_model.joblib
 
 # frontend
 frontend/node_modules/
