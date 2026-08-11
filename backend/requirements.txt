@@ -11,3 +11,7 @@ psycopg2-binary==2.9.12
 # auth (Clerk session verification, API key hashing needs only stdlib)
 pyjwt[crypto]==2.13.0
 httpx==0.28.1
+pandas
+numpy
+scikit-learn
+joblib
