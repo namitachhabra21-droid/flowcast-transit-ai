@@ -135,3 +135,24 @@ main{padding-top:14px}
 .mini-ring:before{background:#fff}
 .scenario-ring{background:conic-gradient(var(--orange) 84%,#e8ccc0 0)}
 .scenario-ring:before{background:#fff;box-shadow:inset 0 0 0 1px #efd9cf}
+/* peak-card ring's empty track is now always set inline by renderHeatmap(), this is
+   just the pre-JS/no-JS fallback so it never flashes the old dark track */
+.big-ring{background:conic-gradient(var(--orange) 91%,#e8ccc0 0)}
+
+/* Forecast: make the heatmap and "Run latest model" genuinely interactive
+   instead of static/cosmetic — legend, hover/selection states, and a
+   loading animation, without touching the heatmap's own color scale. */
+.heatmap-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 22px 18px;flex-wrap:wrap}
+.heatmap-scale{display:flex;align-items:center;gap:8px;font-size:9px;color:#7e8ba0;letter-spacing:.3px}
+.heatmap-scale i{display:block;width:64px;height:6px;border-radius:4px;background:linear-gradient(90deg,#171d29,var(--purple))}
+.heatmap-detail{margin:0;font-size:9px;color:#5c6c81;font-weight:600}
+.heatmap>em{cursor:pointer;transition:transform .15s ease,box-shadow .15s ease}
+.heatmap>em:hover{transform:scale(1.08);box-shadow:0 4px 14px #1d355730;z-index:1;position:relative}
+.heatmap>em.selected{box-shadow:0 0 0 2px #172235;z-index:1;position:relative}
+.heatmap>em.refreshing{animation:heatCellPulse .5s ease infinite alternate}
+@keyframes heatCellPulse{from{opacity:1}to{opacity:.35}}
+#runModel{display:inline-flex;align-items:center;gap:7px}
+#runModelIcon{font-style:normal;display:inline-block}
+#runModelIcon.spinning{animation:spin360 .7s linear infinite}
+@keyframes spin360{to{transform:rotate(360deg)}}
+#runModel:disabled{opacity:.75;cursor:default}

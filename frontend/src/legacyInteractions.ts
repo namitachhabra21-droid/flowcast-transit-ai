@@ -82,7 +82,39 @@ function renderRoutes(){document.querySelector('#routeRows').innerHTML=routes.ma
 renderRoutes();
 
 const heatTimes=['16:00','16:30','17:00','17:30','18:00','18:30','19:00','19:30'];
-document.querySelector('#heatmap').innerHTML=`<div></div>${heatTimes.map(t=>`<span>${t}</span>`).join('')}`+routes.map((r,ri)=>`<b><i style="background:${r.color}"></i>${r.name}</b>${heatTimes.map((_,ti)=>{const v=Math.min(99,35+ri*5+Math.round(Math.sin((ti+ri)*.75)*17)+ti*7);return `<em style="--load:${v}%" title="${v}%"><span>${v}%</span></em>`}).join('')}`).join('');
+let heatmapSeed=0;
+
+function renderHeatmap(modeShift=0){
+  let peak={value:-1,route:routes[0],timeIndex:0};
+  const body=routes.map((r,ri)=>{
+    const cells=heatTimes.map((t,ti)=>{
+      const base=35+ri*5+Math.round(Math.sin((ti+ri+heatmapSeed)*.75)*17)+ti*7;
+      const v=Math.max(12,Math.min(99,base+modeShift));
+      if(v>peak.value)peak={value:v,route:r,timeIndex:ti};
+      return `<em style="--load:${v}%" title="${r.name} · ${t} · ${v}%" data-route="${ri}" data-time="${ti}" data-value="${v}"><span>${v}%</span></em>`;
+    }).join('');
+    return `<b><i style="background:${r.color}"></i>${r.name}</b>${cells}`;
+  }).join('');
+  document.querySelector('#heatmap').innerHTML=`<div></div>${heatTimes.map(t=>`<span>${t}</span>`).join('')}`+body;
+  document.querySelector('#heatmapDetail').textContent='Hover or tap a cell for details';
+
+  document.querySelectorAll('#heatmap em').forEach(cell=>cell.addEventListener('click',()=>{
+    document.querySelectorAll('#heatmap em.selected').forEach(c=>c.classList.remove('selected'));
+    cell.classList.add('selected');
+    const ri=+cell.dataset.route,ti=+cell.dataset.time,v=cell.dataset.value;
+    const level=v>85?'Critical':v>70?'Very crowded':v>45?'Busy':'Comfortable';
+    document.querySelector('#heatmapDetail').textContent=`${routes[ri].name} · ${heatTimes[ti]} · ${v}% predicted (${level})`;
+  }));
+
+  const busiestStation=[...stations].sort((a,b)=>b.crowd-a.crowd)[0];
+  document.querySelector('#peakTime').textContent=heatTimes[peak.timeIndex];
+  document.querySelector('#peakRing').style.background=`conic-gradient(var(--orange) ${peak.value}%,#e8ccc0 0)`;
+  document.querySelector('#peakRing span').innerHTML=`${peak.value}<small>%</small>`;
+  document.querySelector('#peakLine').textContent=peak.route.name;
+  document.querySelector('#peakStation').textContent=busiestStation.name;
+  document.querySelector('#peakRiders').textContent=Math.round(peak.value*3120).toLocaleString('en-IN');
+}
+renderHeatmap();
 
 const activeAlerts=[{level:'critical',title:'Capacity breach predicted',place:'Rajiv Chowk · Platform 2',time:'8 min ago',load:'112%',riders:'8,420'},{level:'critical',title:'Unusual demand surge',place:'Kashmere Gate · Yellow Line',time:'14 min ago',load:'104%',riders:'6,180'},{level:'warning',title:'Bus bunching detected',place:'Route 534 · South Extension',time:'21 min ago',load:'88%',riders:'2,940'},{level:'info',title:'Event-related demand',place:'Central Secretariat',time:'34 min ago',load:'79%',riders:'3,610'}];
 function renderAlerts(filter='all'){const visible=activeAlerts.filter(a=>filter==='all'||filter==='critical'&&a.level==='critical'||filter==='watching'&&a.level!=='critical');document.querySelector('#alertsList').innerHTML=visible.map(a=>`<button class="alert-row" data-alert-index="${activeAlerts.indexOf(a)}"><i class="${a.level}">${a.level==='info'?'i':'!'}</i><span><b>${a.title}</b><small>${a.place}</small></span><em>${a.time}</em><strong>→</strong></button>`).join('');document.querySelectorAll('[data-alert-index]').forEach(row=>row.addEventListener('click',()=>selectAlert(+row.dataset.alertIndex)))}
@@ -98,7 +130,20 @@ document.querySelector('#closePopover').addEventListener('click',()=>document.qu
 document.querySelector('#stationDetail').addEventListener('click',()=>switchView('forecast'));
 
 const modal=document.querySelector('#commandModal');function toggleSearch(open){modal.classList.toggle('open',open);if(open)setTimeout(()=>document.querySelector('#commandInput').focus(),100)}modal.addEventListener('click',e=>{if(e.target===modal)toggleSearch(false)});document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();toggleSearch(true)}if(e.key==='Escape')toggleSearch(false)});document.querySelectorAll('[data-command]').forEach(b=>b.addEventListener('click',()=>{toggleSearch(false);if(b.dataset.command==='station'){switchView('network');selectStation(0)}else switchView(b.dataset.command)}));
-document.querySelector('#generateBtn').addEventListener('click',e=>{e.currentTarget.innerHTML='✓ Brief generated';showToast('Operations brief is ready');setTimeout(()=>e.currentTarget.innerHTML='✦ Generate operations brief',1900)});document.querySelector('#runModel').addEventListener('click',e=>{e.currentTarget.textContent='Running model…';setTimeout(()=>{e.currentTarget.textContent='✓ Model updated';showToast('Latest ticketing data processed')},1100)});document.querySelector('#markRead').addEventListener('click',()=>showToast('All alerts marked as reviewed'));document.querySelector('#executePlan').addEventListener('click',()=>showToast('Response plan sent to operations teams'));
+document.querySelector('#generateBtn').addEventListener('click',e=>{e.currentTarget.innerHTML='✓ Brief generated';showToast('Operations brief is ready');setTimeout(()=>e.currentTarget.innerHTML='✦ Generate operations brief',1900)});
+document.querySelector('#runModel').addEventListener('click',e=>{
+  const btn=e.currentTarget,icon=document.querySelector('#runModelIcon');
+  btn.disabled=true;icon.classList.add('spinning');
+  document.querySelectorAll('#heatmap em').forEach(cell=>cell.classList.add('refreshing'));
+  setTimeout(()=>{
+    heatmapSeed+=1+Math.random()*3;
+    renderHeatmap();
+    icon.classList.remove('spinning');btn.disabled=false;
+    document.querySelector('#modelConfidence').textContent=`${(93+Math.random()*2).toFixed(1)}%`;
+    showToast('Latest ticketing data processed · forecast updated');
+  },900);
+});
+document.querySelector('#markRead').addEventListener('click',()=>showToast('All alerts marked as reviewed'));document.querySelector('#executePlan').addEventListener('click',()=>showToast('Response plan sent to operations teams'));
 function showToast(message){const t=document.querySelector('#toast');t.querySelector('span').textContent=message;t.classList.add('show');clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>t.classList.remove('show'),2400)}
 
 /* Complete the remaining dashboard controls with useful demo behavior. */
@@ -115,7 +160,14 @@ const lineFilterBtn=document.querySelector('.line-filter button');
 const lineChoices=['All lines','Blue Line','Yellow Line','Airport Express'];let lineChoiceIndex=0;
 lineFilterBtn.addEventListener('click',()=>{lineChoiceIndex=(lineChoiceIndex+1)%lineChoices.length;lineFilterBtn.textContent=`${lineChoices[lineChoiceIndex]} ⌄`;document.querySelector('.line-filter i').style.background=routes[Math.max(0,lineChoiceIndex-1)]?.color||'var(--purple)';showToast(`${lineChoices[lineChoiceIndex]} demand displayed`)});
 
-document.querySelectorAll('#forecastControls select,#forecastControls input').forEach(control=>control.addEventListener('change',()=>{const mode=document.querySelector('#forecastMode').value;const horizon=document.querySelector('#forecastHorizon').value;const shift=mode==='Bus'?8:mode==='Metro'?3:0;document.querySelectorAll('#heatmap em span').forEach(cell=>{const value=Math.min(99,+cell.textContent.replace('%','')+shift);cell.textContent=`${value}%`;cell.parentElement.style.setProperty('--load',`${value}%`)});document.querySelector('#modelConfidence').textContent=mode==='All transit'?'94.6%':'93.8%';showToast(`${mode} forecast updated · ${horizon}`)}));
+document.querySelectorAll('#forecastControls select,#forecastControls input').forEach(control=>control.addEventListener('change',()=>{
+  const mode=document.querySelector('#forecastMode').value;
+  const horizon=document.querySelector('#forecastHorizon').value;
+  const shift=mode==='Bus'?8:mode==='Metro'?3:0;
+  renderHeatmap(shift);
+  document.querySelector('#modelConfidence').textContent=mode==='All transit'?'94.6%':'93.8%';
+  showToast(`${mode} forecast updated · ${horizon}`);
+}));
 
 document.querySelector('#addCorridorBtn').addEventListener('click',()=>{const name=`Special Corridor ${routes.length-4}`;routes.push({name,color:'#56ccf2',from:'New Delhi → Central Secretariat',load:52,next:66,reliability:'95.0%',status:'Monitoring'});renderRoutes();showToast(`${name} added to monitoring`)});
 
