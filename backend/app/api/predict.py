@@ -1,6 +1,9 @@
 """Internal ML prediction endpoint: POST /predict.
 
-Called server-to-server by the Node.js/Express backend.
+Called directly by the deployed Flowcast frontend (and by recommend.py's
+/recommend-route, once per candidate route) — there is no separate Node.js/
+Express service in this project; that was a stale claim left over from an
+earlier draft of this docstring.
 
 The endpoint first attempts to use the trained FlowCast Random Forest
 model. If the trained model cannot produce a prediction, it falls back

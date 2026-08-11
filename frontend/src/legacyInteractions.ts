@@ -78,7 +78,7 @@ const actions=[{icon:'↗',title:'Add 2 trains on Yellow Line',meta:'Reduces pro
 document.querySelector('#actionsList').innerHTML=actions.map((a,i)=>`<div class="action-row"><i>${a.icon}</i><span><b>${a.title}</b><small>${a.meta}</small></span><em>${a.type}</em><button data-action="${i}">Review</button></div>`).join('');
 
 const routes=[{name:'Blue Line',color:'#3b82f6',from:'Dwarka Sec 21 → Noida Electronic City',load:81,next:92,reliability:'96.1%',status:'High demand'},{name:'Yellow Line',color:'#f5c94a',from:'Samaypur Badli → Millennium City',load:88,next:97,reliability:'94.8%',status:'Critical soon'},{name:'Magenta Line',color:'#e653a8',from:'Janakpuri West → Botanical Garden',load:63,next:71,reliability:'97.2%',status:'Stable'},{name:'Violet Line',color:'#8b5cf6',from:'Kashmere Gate → Raja Nahar Singh',load:69,next:78,reliability:'95.4%',status:'Watching'},{name:'Airport Express',color:'#f59e0b',from:'New Delhi → Yashobhoomi Dwarka',load:38,next:44,reliability:'98.6%',status:'Comfortable'}];
-function renderRoutes(){document.querySelector('#routeRows').innerHTML=routes.map((r,i)=>`<button class="route-row" data-route-index="${i}"><span><i style="background:${r.color}"></i><b>${r.name}</b><small>${r.from}</small></span><span><b>${r.load}%</b><i class="loadbar"><em style="width:${r.load}%"></em></i></span><span class="next-load">${r.next}% <small>↑</small></span><span>${r.reliability}</span><span><em class="status ${r.next>90?'danger':r.next>75?'warn':''}">${r.status}</em></span><strong>→</strong></button>`).join('');document.querySelectorAll('[data-route-index]').forEach(row=>row.addEventListener('click',()=>{const r=routes[+row.dataset.routeIndex];showToast(`${r.name}: ${r.next}% predicted load · ${r.reliability} reliability`)}))}
+function renderRoutes(){const routeRows=document.querySelector('#routeRows');routeRows.innerHTML=routes.map((r,i)=>`<button class="route-row" data-route-index="${i}"><span><i style="background:${r.color}"></i><b>${r.name}</b><small>${r.from}</small></span><span><b>${r.load}%</b><i class="loadbar"><em style="width:${r.load}%"></em></i></span><span class="next-load">${r.next}% <small>↑</small></span><span>${r.reliability}</span><span><em class="status ${r.next>90?'danger':r.next>75?'warn':''}">${r.status}</em></span><strong>→</strong></button>`).join('');routeRows.querySelectorAll('[data-route-index]').forEach(row=>row.addEventListener('click',()=>{const r=routes[+row.dataset.routeIndex];showToast(`${r.name}: ${r.next}% predicted load · ${r.reliability} reliability`)}))}
 renderRoutes();
 
 const heatTimes=['16:00','16:30','17:00','17:30','18:00','18:30','19:00','19:30'];
@@ -143,12 +143,34 @@ document.querySelector('#runModel').addEventListener('click',e=>{
     showToast('Latest ticketing data processed · forecast updated');
   },900);
 });
-document.querySelector('#markRead').addEventListener('click',()=>showToast('All alerts marked as reviewed'));document.querySelector('#executePlan').addEventListener('click',()=>showToast('Response plan sent to operations teams'));
 function showToast(message){const t=document.querySelector('#toast');t.querySelector('span').textContent=message;t.classList.add('show');clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>t.classList.remove('show'),2400)}
 
 /* Complete the remaining dashboard controls with useful demo behavior. */
 document.querySelector('#viewAllForecastBtn').addEventListener('click',()=>switchView('forecast'));
-document.querySelector('#dateBtn').addEventListener('click',e=>{e.currentTarget.innerHTML=e.currentTarget.textContent.includes('Today')?'Tomorrow, 12 Aug <span>⌄</span>':'Today, 11 Aug <span>⌄</span>';showToast('Dashboard timeline updated')});
+const MONTH_SHORT=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function formatDatePill(date){return `${date.getDate()} ${MONTH_SHORT[date.getMonth()]}`}
+let dateBtnShowingTomorrow=false;
+document.querySelector('#dateBtn').addEventListener('click',e=>{
+  dateBtnShowingTomorrow=!dateBtnShowingTomorrow;
+  const target=new Date();
+  if(dateBtnShowingTomorrow) target.setDate(target.getDate()+1);
+  e.currentTarget.innerHTML=`${dateBtnShowingTomorrow?'Tomorrow':'Today'}, ${formatDatePill(target)} <span>⌄</span>`;
+  showToast('Dashboard timeline updated');
+});
+document.querySelector('#dateBtn').innerHTML=`Today, ${formatDatePill(new Date())} <span>⌄</span>`;
+
+/* Greeting on the Network page's header, driven by the visitor's real local
+   time instead of a hardcoded "Good morning." — updated once on load and
+   again on every livePulse() tick so a long-open tab still reflects the
+   current hour. */
+function updateGreeting(){
+  const heading=document.querySelector('#greetingHeading');
+  if(!heading) return;
+  const hour=new Date().getHours();
+  const greeting=hour<5?'Good night':hour<12?'Good morning':hour<17?'Good afternoon':hour<21?'Good evening':'Good night';
+  heading.textContent=`${greeting}.`;
+}
+updateGreeting();
 
 let mapScale=1;
 function setMapScale(next){mapScale=Math.max(.8,Math.min(1.45,next));document.querySelector('#transitMap>svg').style.transform=`scale(${mapScale})`;showToast(`Map zoom ${Math.round(mapScale*100)}%`)}
@@ -453,6 +475,7 @@ function livePulse(){
   refreshModeSummary();
   refreshRoutesLive();
   refreshPopoverIfOpen();
+  updateGreeting();
 }
 livePulse();
 setInterval(livePulse,4500);

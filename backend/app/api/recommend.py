@@ -228,7 +228,14 @@ def recommend_route(payload: RecommendRequest) -> RecommendResponse:
 
     if len(evaluated) > 1:
         runner_up = min(evaluated[1:], key=lambda r: r.predicted_occupancy_percentage)
-        diff_pct = round(((runner_up.predicted_occupancy_percentage - best.predicted_occupancy_percentage) / runner_up.predicted_occupancy_percentage) * 100)
+        # Guard against a divide-by-zero: runner_up's occupancy can legitimately
+        # round to exactly 0% (predicted_count is clamped to >= 0), which would
+        # otherwise crash this endpoint for what is a perfectly valid prediction.
+        diff_pct = (
+            round(((runner_up.predicted_occupancy_percentage - best.predicted_occupancy_percentage) / runner_up.predicted_occupancy_percentage) * 100)
+            if runner_up.predicted_occupancy_percentage
+            else 0
+        )
         if diff_pct > 0:
             reason = (
                 f"{best.route_name} has {diff_pct}% lower predicted occupancy than "
