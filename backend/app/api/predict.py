@@ -400,6 +400,7 @@ def _predict_with_trained_model(
     raw_count = predict_ridership(
         station_id=req.station_id,
         timestamp=req.timestamp,
+        current_passenger_count=req.current_passenger_count,
     )
 
     # ========================================================
