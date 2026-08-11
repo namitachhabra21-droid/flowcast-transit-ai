@@ -1,0 +1,52 @@
+{
+    "model_name": "Random Forest",
+    "model_version": "1.0.0",
+    "problem": "Next-hour transit ridership forecasting",
+    "target": "target_next_hour",
+    "prediction_horizon": "1 hour",
+    "number_of_features": 20,
+    "number_of_stations": 428,
+    "production_training_rows": 103782,
+    "training_dates": {
+        "start": "2021-10-06",
+        "end": "2022-03-09"
+    },
+    "validation_dates": {
+        "start": "2022-03-24",
+        "end": "2022-07-27"
+    },
+    "test_dates": {
+        "start": "2022-08-03",
+        "end": "2022-09-19"
+    },
+    "test_rows": 25021,
+    "random_forest_parameters": {
+        "n_estimators": 300,
+        "max_depth": 20,
+        "min_samples_leaf": 2,
+        "max_features": "sqrt",
+        "random_state": 42
+    },
+    "features": [
+        "ridership",
+        "ridership_lag_1h",
+        "ridership_lag_2h",
+        "ridership_lag_3h",
+        "rolling_mean_3h",
+        "rolling_mean_6h",
+        "hour",
+        "day_of_week",
+        "is_weekend",
+        "is_morning_peak",
+        "is_evening_peak",
+        "is_peak_hour",
+        "hour_sin",
+        "hour_cos",
+        "day_sin",
+        "day_cos",
+        "latitude",
+        "longitude",
+        "transfers",
+        "station_id_numeric"
+    ]
+}
