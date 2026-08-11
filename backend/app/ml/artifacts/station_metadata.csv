@@ -427,3 +427,12 @@ station_complex_id,station,borough,latitude,longitude,station_id_numeric
 99,"Lorimer St (M,J)",Brooklyn,40.70387,-73.94741,425
 TRAM1,RI Tramway (Manhattan),Manhattan,40.761337,-73.96416,426
 TRAM2,RI Tramway (Roosevelt),Manhattan,40.75734,-73.95412,427
+rajiv-chowk,Rajiv Chowk,Delhi,28.6328,77.2197,428
+kashmere-gate,Kashmere Gate,Delhi,28.6675,77.2273,429
+new-delhi,New Delhi,Delhi,28.6432,77.2197,430
+central-secretariat,Central Secretariat,Delhi,28.6145,77.2119,431
+noida-sector-18,Noida Sector 18,Delhi,28.5697,77.326,432
+dwarka-sector-21,Dwarka Sector 21,Delhi,28.5522,77.0589,433
+hauz-khas,Hauz Khas,Delhi,28.5433,77.2066,434
+botanical-garden,Botanical Garden,Delhi,28.5679,77.3352,435
+igi-airport,IGI Airport,Delhi,28.5562,77.118,436

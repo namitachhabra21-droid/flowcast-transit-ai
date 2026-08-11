@@ -246,16 +246,27 @@ def predict_crowding(features: dict, capacity: int) -> tuple:
     return predicted_count, occupancy_pct, level, confidence, factors
 
 
+def predict_best_effort(payload: PredictionRequest) -> tuple:
+    """The one prediction entry point every caller should use: try the
+    trained model, fall back to the heuristic on any failure. Shared by
+    the /predict endpoint and recommend.py so a route evaluated by
+    /recommend-route gets the same trained-model-when-possible behavior
+    as a direct /predict call, instead of recommend.py quietly always
+    using the heuristic."""
+    try:
+        predicted_count, occupancy_pct, level, confidence, factors, model_version = _predict_with_trained_model(payload)
+    except Exception:
+        features = build_feature_vector(payload)
+        predicted_count, occupancy_pct, level, confidence, factors = predict_crowding(features, payload.vehicle_capacity)
+        model_version = MODEL_VERSION
+    return predicted_count, occupancy_pct, level, confidence, factors, model_version
+
+
 @router.post("/predict", response_model=PredictionResponse)
 def predict(payload: PredictionRequest) -> PredictionResponse:
     started = time.perf_counter()
     try:
-        try:
-            predicted_count, occupancy_pct, level, confidence, factors, model_version = _predict_with_trained_model(payload)
-        except Exception:
-            features = build_feature_vector(payload)
-            predicted_count, occupancy_pct, level, confidence, factors = predict_crowding(features, payload.vehicle_capacity)
-            model_version = MODEL_VERSION
+        predicted_count, occupancy_pct, level, confidence, factors, model_version = predict_best_effort(payload)
     except Exception as exc:  # model/feature-building failure, not a validation error
         raise HTTPException(status_code=500, detail=f"Prediction failed: {exc}")
     inference_time_ms = round((time.perf_counter() - started) * 1000, 2)

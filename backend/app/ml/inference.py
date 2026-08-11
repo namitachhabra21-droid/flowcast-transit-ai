@@ -3,14 +3,26 @@
 Loads a Random Forest ridership model + its companion artifacts
 (feature columns, station mapping, station metadata) once at import time.
 
-Loading is defensive on purpose: the artifacts currently checked in are a
-partial upload (missing `transit_crowding_model.joblib`, and the station
-mapping/metadata are keyed by an NYC subway complex-ID scheme that has no
-overlap with this app's Delhi Metro station IDs). Rather than crash the
-whole FastAPI app on import if any artifact is missing or mismatched,
-loading failures are caught here and predict_ridership() raises a plain
-RuntimeError/ValueError at call time instead — app/api/predict.py catches
-that and falls back to the heuristic model.
+Loading is defensive on purpose: `transit_crowding_model.joblib` (~750MB)
+exceeds GitHub's 100MB limit and isn't checked into this repo, so on any
+environment without it dropped in manually, loading fails and
+predict_ridership() raises RuntimeError/ValueError at call time instead of
+crashing the whole app at import — app/api/predict.py catches that and
+falls back to the heuristic model.
+
+Station coverage: the model was trained on ~103k rows of real NYC subway
+ridership (see artifacts/model_metadata.json) and its station_mapping /
+station_metadata were originally keyed by 428 NYC subway complex IDs only.
+This app's 9 Delhi Metro station IDs (rajiv-chowk, hauz-khas, etc.) have
+been appended to both artifacts with their real public lat/long
+coordinates — a genuine geographic anchor, not a borrowed NYC identity —
+so predict_ridership() can look them up and actually run instead of always
+falling back. Important caveat: the model never saw Delhi ridership data
+during training, so predictions for these 9 stations are the trained
+model extrapolating on real-but-out-of-distribution input, not a
+validated Delhi forecast. Treat trained-model output for these stations
+as illustrative, not production-accurate, until it's retrained on real
+Delhi ridership.
 """
 import math
 import os

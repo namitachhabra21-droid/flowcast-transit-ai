@@ -25,7 +25,7 @@ from typing import Dict, List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.api.predict import MODEL_VERSION, PredictionFactor, PredictionRequest, build_feature_vector, predict_crowding
+from app.api.predict import PredictionFactor, PredictionRequest, predict_best_effort
 
 router = APIRouter(tags=["ml"])
 
@@ -185,12 +185,14 @@ def recommend_route(payload: RecommendRequest) -> RecommendResponse:
         )
 
     evaluated: List[EvaluatedRoute] = []
+    route_model_version = None
     for candidate in candidates:
         boarding_line = candidate["lines"][0]
         current_count = _base_current_load(boarding_line, payload.source_station)
 
-        # Reuses the exact same heuristic /predict exposes — one prediction
-        # per candidate route, not one prediction reused for all of them.
+        # Reuses the exact same trained-model-then-heuristic-fallback path
+        # /predict exposes — one prediction per candidate route, not one
+        # prediction reused for all of them.
         pred_request = PredictionRequest(
             route_id=boarding_line,
             station_id=payload.source_station,
@@ -198,8 +200,7 @@ def recommend_route(payload: RecommendRequest) -> RecommendResponse:
             current_passenger_count=current_count,
             timestamp=departure_time,
         )
-        features = build_feature_vector(pred_request)
-        predicted_count, occupancy_pct, level, confidence, factors = predict_crowding(features, DEFAULT_CAPACITY)
+        predicted_count, occupancy_pct, level, confidence, factors, route_model_version = predict_best_effort(pred_request)
 
         hops = 2 if candidate["transfer_station"] else 1
         travel_time = hops * MINUTES_PER_HOP * 3 + (TRANSFER_PENALTY_MINUTES if candidate["transfer_station"] else 0)
@@ -248,5 +249,5 @@ def recommend_route(payload: RecommendRequest) -> RecommendResponse:
         evaluated_routes=evaluated,
         recommended_route_id=best.route_id,
         recommendation_reason=reason,
-        model_version=MODEL_VERSION,
+        model_version=route_model_version,
     )
