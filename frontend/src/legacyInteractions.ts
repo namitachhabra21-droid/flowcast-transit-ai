@@ -239,6 +239,7 @@ swapRouteBtn.addEventListener('click',()=>{
   const source=sourceSelect.value;
   sourceSelect.value=destSelect.value;
   destSelect.value=source;
+  runJourneySearch();
 });
 
 function showJourneyNote(icon,title,text){journeyNote.classList.remove('hidden');journeyNoteIcon.textContent=icon;journeyNoteTitle.textContent=title;journeyNoteText.textContent=text}
@@ -295,7 +296,10 @@ function buildDepartureTime(){
   return d.toISOString();
 }
 
+let journeySearchGeneration=0;
+
 async function searchRoute(source,destination,{silent=false}={}){
+  const generation=++journeySearchGeneration;
   if(!silent){
     findRouteBtn.textContent='Finding routes…';
     findRouteBtn.disabled=true;
@@ -308,6 +312,10 @@ async function searchRoute(source,destination,{silent=false}={}){
       body:JSON.stringify({source_station:source,destination_station:destination,...(departure_time?{departure_time}:{})})
     });
     const data=await res.json();
+    // A newer search (different stations, e.g. the user switched again while
+    // this request was in flight) has already started — this response is
+    // stale, don't let it clobber what's now on screen.
+    if(generation!==journeySearchGeneration) return;
     if(!res.ok){
       showJourneyNote('!','Could not find a route',data.detail?JSON.stringify(data.detail):`Request failed with status ${res.status}`);
       journeyResultsTable.classList.add('hidden');
@@ -319,6 +327,7 @@ async function searchRoute(source,destination,{silent=false}={}){
       journeyPollTimer=setInterval(()=>searchRoute(source,destination,{silent:true}),JOURNEY_POLL_INTERVAL_MS);
     }
   }catch(err){
+    if(generation!==journeySearchGeneration) return;
     renderLocalJourney(source,destination);
     stopJourneyPolling();
   }finally{
@@ -343,7 +352,7 @@ function renderLocalJourney(source,destination){
   showJourneyNote('✦','Best route found',`${from} → ${to}: Blue Line is fastest and ${options[1].load-options[0].load}% less crowded than the next option · Demo prediction`);
 }
 
-findRouteBtn.addEventListener('click',()=>{
+function runJourneySearch(){
   const source=sourceSelect.value;
   const destination=destSelect.value;
   stopJourneyPolling();
@@ -352,7 +361,14 @@ findRouteBtn.addEventListener('click',()=>{
   if(!source||!destination){showJourneyNote('!','Select both stations','Pick a source and destination to find a route.');return}
   if(source===destination){showJourneyNote('!','Pick two different stations','Source and destination must be different.');return}
   searchRoute(source,destination);
-});
+}
+findRouteBtn.addEventListener('click',runJourneySearch);
+// Re-search automatically when either station changes — previously only the
+// explicit "Find best route" click did this, so picking a new combination
+// from the dropdowns (or swapping) left the *previous* combination's stale
+// results on screen with nothing indicating they hadn't updated.
+sourceSelect.addEventListener('change',runJourneySearch);
+destSelect.addEventListener('change',runJourneySearch);
 
 // The planner lives on Network, so stop refreshing after the user leaves that view.
 document.querySelectorAll('.nav[data-view]').forEach(n=>n.addEventListener('click',()=>{
