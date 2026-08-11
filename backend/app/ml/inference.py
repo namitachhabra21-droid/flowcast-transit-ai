@@ -1,171 +1,581 @@
-"""Trained-model inference for /predict.
+# -*- coding: utf-8 -*-
 
-Loads a Random Forest ridership model + its companion artifacts
-(feature columns, station mapping, station metadata) once at import time.
-
-`transit_crowding_model.joblib` ships pruned to 60→20 of the original 300
-trees (~52MB vs. ~759MB): the full 300-tree forest needs ~700MB RSS just
-to unpickle, which alone exceeds Render's free-tier 512MB cap before the
-app's other dependencies (pandas/numpy/sklearn/fastapi, ~140MB baseline)
-even load. A RandomForestRegressor's prediction is the mean of its trees'
-outputs, so keeping the first 20 is a standard, legitimate compression
-technique — not a retrained or fabricated model. Verified: full app import
-with this pruned model measures ~281MB RSS, comfortably under the 512MB
-limit. Predictions shift slightly vs. the full model (~2% on in-
-distribution NYC stations, ~9% on the already-out-of-distribution Delhi
-ones) — an acceptable tradeoff for actually being deployable for free.
-
-Loading is still defensive: if this file is ever missing (e.g. someone
-regenerates artifacts/ without it), loading fails and predict_ridership()
-raises RuntimeError/ValueError at call time instead of crashing the whole
-app at import — app/api/predict.py catches that and falls back to the
-heuristic model.
-
-Station coverage: the model was trained on ~103k rows of real NYC subway
-ridership (see artifacts/model_metadata.json) and its station_mapping /
-station_metadata were originally keyed by 428 NYC subway complex IDs only.
-This app's 9 Delhi Metro station IDs (rajiv-chowk, hauz-khas, etc.) have
-been appended to both artifacts with their real public lat/long
-coordinates — a genuine geographic anchor, not a borrowed NYC identity —
-so predict_ridership() can look them up and actually run instead of always
-falling back. Important caveat: the model never saw Delhi ridership data
-during training, so predictions for these 9 stations are the trained
-model extrapolating on real-but-out-of-distribution input, not a
-validated Delhi forecast. Treat trained-model output for these stations
-as illustrative, not production-accurate, until it's retrained on real
-Delhi ridership.
 """
-import math
-import os
-from typing import Optional
+FlowCast Transit AI
+Production Random Forest Inference
 
+Uses:
+    - Production Random Forest
+    - Station mapping
+    - Station metadata
+    - Historical MTA inference data
+
+Prediction:
+    Next-hour station ridership
+"""
+
+import os
+import math
 import joblib
 import numpy as np
 import pandas as pd
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ARTIFACT_DIR = os.path.join(BASE_DIR, "artifacts")
 
-MODEL_PATH = os.path.join(ARTIFACT_DIR, "transit_crowding_model.joblib")
-FEATURE_PATH = os.path.join(ARTIFACT_DIR, "feature_columns.joblib")
-STATION_MAPPING_PATH = os.path.join(ARTIFACT_DIR, "station_mapping.joblib")
-STATION_METADATA_PATH = os.path.join(ARTIFACT_DIR, "station_metadata.csv")
+# ============================================================
+# PATHS
+# ============================================================
+
+BASE_DIR = os.path.dirname(
+    os.path.abspath(__file__)
+)
+
+ARTIFACT_DIR = os.path.join(
+    BASE_DIR,
+    "artifacts"
+)
+
+DATA_PATH = os.path.join(
+    BASE_DIR,
+    "..",
+    "data",
+    "flowcast_mta_data.csv"
+)
+
+MODEL_PATH = os.path.join(
+    ARTIFACT_DIR,
+    "transit_crowding_model.joblib"
+)
+
+FEATURE_PATH = os.path.join(
+    ARTIFACT_DIR,
+    "feature_columns.joblib"
+)
+
+MAPPING_PATH = os.path.join(
+    ARTIFACT_DIR,
+    "station_mapping.joblib"
+)
+
+METADATA_PATH = os.path.join(
+    ARTIFACT_DIR,
+    "station_metadata.csv"
+)
 
 
-def _load_artifacts():
+# ============================================================
+# LOAD MODEL
+# ============================================================
+
+print("Loading FlowCast Random Forest...")
+
+MODEL = joblib.load(
+    MODEL_PATH
+)
+
+FEATURE_COLUMNS = joblib.load(
+    FEATURE_PATH
+)
+
+STATION_MAPPING = joblib.load(
+    MAPPING_PATH
+)
+
+STATION_METADATA = pd.read_csv(
+    METADATA_PATH,
+    low_memory=False
+)
+
+
+# ============================================================
+# LOAD MTA DATA
+# ============================================================
+
+print("Loading MTA inference data...")
+
+MTA_DATA = pd.read_csv(
+    DATA_PATH,
+    low_memory=False
+)
+
+MTA_DATA["datetime"] = pd.to_datetime(
+    MTA_DATA["datetime"],
+    errors="coerce"
+)
+
+MTA_DATA["station_complex_id"] = (
+    MTA_DATA["station_complex_id"]
+    .astype(str)
+    .str.strip()
+)
+
+MTA_DATA = MTA_DATA.sort_values(
+    [
+        "station_complex_id",
+        "datetime"
+    ]
+).reset_index(
+    drop=True
+)
+
+
+# ============================================================
+# FAST TIMESTAMP LOOKUP
+# ============================================================
+
+MTA_LOOKUP = (
+    MTA_DATA
+    .set_index(
+        [
+            "station_complex_id",
+            "datetime"
+        ]
+    )
+    .sort_index()
+)
+
+
+# ============================================================
+# GET STATION METADATA
+# ============================================================
+
+def get_station_metadata(
+    station_id: str
+):
+
+    station_id = str(
+        station_id
+    )
+
+    rows = STATION_METADATA[
+        STATION_METADATA[
+            "station_complex_id"
+        ].astype(str)
+        == station_id
+    ]
+
+    if rows.empty:
+
+        raise ValueError(
+            f"Station '{station_id}' "
+            f"not found in station metadata."
+        )
+
+    return rows.iloc[0]
+
+
+# ============================================================
+# GET RIDERSHIP AT EXACT TIMESTAMP
+# ============================================================
+
+def get_ridership(
+    station_id: str,
+    timestamp
+):
+
+    station_id = str(
+        station_id
+    )
+
+    timestamp = pd.Timestamp(
+        timestamp
+    )
+
     try:
-        model = joblib.load(MODEL_PATH)
-        feature_columns = joblib.load(FEATURE_PATH)
-        station_mapping = joblib.load(STATION_MAPPING_PATH)
-        station_metadata = pd.read_csv(STATION_METADATA_PATH)
-    except FileNotFoundError as exc:
-        print(f"[app.ml.inference] trained model artifacts unavailable, /predict will use the heuristic fallback: {exc}")
-        return None, None, None, None
-    print(f"[app.ml.inference] loaded trained model — {len(feature_columns)} features, {len(station_mapping)} stations")
-    return model, feature_columns, station_mapping, station_metadata
+
+        row = MTA_LOOKUP.loc[
+            (
+                station_id,
+                timestamp
+            )
+        ]
+
+        if isinstance(
+            row,
+            pd.DataFrame
+        ):
+
+            row = row.iloc[0]
+
+        return float(
+            row["ridership"]
+        )
+
+    except KeyError:
+
+        return None
 
 
-MODEL, FEATURE_COLUMNS, STATION_MAPPING, STATION_METADATA = _load_artifacts()
+# ============================================================
+# GET TRANSFERS AT EXACT TIMESTAMP
+# ============================================================
 
+def get_transfers(
+    station_id: str,
+    timestamp
+):
+
+    station_id = str(
+        station_id
+    )
+
+    timestamp = pd.Timestamp(
+        timestamp
+    )
+
+    try:
+
+        row = MTA_LOOKUP.loc[
+            (
+                station_id,
+                timestamp
+            )
+        ]
+
+        if isinstance(
+            row,
+            pd.DataFrame
+        ):
+
+            row = row.iloc[0]
+
+        return float(
+            row["transfers"]
+        )
+
+    except KeyError:
+
+        return None
+
+
+# ============================================================
+# BUILD FEATURES
+# ============================================================
 
 def build_features(
     station_id: str,
-    timestamp,
-    current_passenger_count: int,
-    lag_1h: Optional[float] = None,
-    lag_2h: Optional[float] = None,
-    lag_3h: Optional[float] = None,
-    rolling_mean_3h: Optional[float] = None,
-    rolling_mean_6h: Optional[float] = None,
-    transfers: Optional[float] = None,
-) -> pd.DataFrame:
-    """Build the exact feature row the trained model expects."""
-    timestamp = pd.Timestamp(timestamp)
-    hour = timestamp.hour
-    day_of_week = timestamp.dayofweek
-    is_weekend = int(day_of_week >= 5)
-    is_morning_peak = int(hour in [7, 8, 9, 10])
-    is_evening_peak = int(hour in [16, 17, 18, 19, 20])
-    is_peak_hour = int(is_morning_peak or is_evening_peak)
-    hour_sin = math.sin(2 * math.pi * hour / 24)
-    hour_cos = math.cos(2 * math.pi * hour / 24)
-    day_sin = math.sin(2 * math.pi * day_of_week / 7)
-    day_cos = math.cos(2 * math.pi * day_of_week / 7)
+    timestamp
+):
 
-    station_key = str(station_id)
-    station_numeric = STATION_MAPPING.get(station_key, STATION_MAPPING.get(station_id))
-    if station_numeric is None:
-        raise ValueError(f"Station '{station_id}' was not found in the production station mapping.")
+    station_id = str(
+        station_id
+    )
 
-    station_row = STATION_METADATA[STATION_METADATA["station_complex_id"].astype(str) == station_key]
-    if station_row.empty:
-        raise ValueError(f"Station metadata not found for '{station_id}'.")
-    station_row = station_row.iloc[0]
-    latitude = float(station_row["latitude"])
-    longitude = float(station_row["longitude"])
+    timestamp = pd.Timestamp(
+        timestamp
+    )
 
-    # Fallbacks for the first integration — replace with real historical/live values later.
-    if lag_1h is None:
-        lag_1h = current_passenger_count
-    if lag_2h is None:
-        lag_2h = lag_1h
-    if lag_3h is None:
-        lag_3h = lag_2h
-    if rolling_mean_3h is None:
-        rolling_mean_3h = float(np.mean([lag_1h, lag_2h, lag_3h]))
-    if rolling_mean_6h is None:
-        rolling_mean_6h = rolling_mean_3h
+    # --------------------------------------------------------
+    # Station validation
+    # --------------------------------------------------------
+
+    if station_id not in STATION_MAPPING:
+
+        raise ValueError(
+            f"Station '{station_id}' "
+            f"not found in station mapping."
+        )
+
+    station_numeric = int(
+        STATION_MAPPING[
+            station_id
+        ]
+    )
+
+    # --------------------------------------------------------
+    # Current observation
+    # --------------------------------------------------------
+
+    current_ridership = get_ridership(
+        station_id,
+        timestamp
+    )
+
+    if current_ridership is None:
+
+        raise ValueError(
+            f"No MTA observation exists for "
+            f"station {station_id} at "
+            f"{timestamp}."
+        )
+
+    # --------------------------------------------------------
+    # Historical lags
+    # --------------------------------------------------------
+
+    lag_1h = get_ridership(
+        station_id,
+        timestamp -
+        pd.Timedelta(hours=1)
+    )
+
+    lag_2h = get_ridership(
+        station_id,
+        timestamp -
+        pd.Timedelta(hours=2)
+    )
+
+    lag_3h = get_ridership(
+        station_id,
+        timestamp -
+        pd.Timedelta(hours=3)
+    )
+
+    if any(
+        pd.isna(x)
+        for x in [
+            lag_1h,
+            lag_2h,
+            lag_3h
+        ]
+    ):
+
+        raise ValueError(
+            "Insufficient historical observations "
+            "for 1h/2h/3h lag features."
+        )
+
+    # --------------------------------------------------------
+    # Rolling 3h
+    # --------------------------------------------------------
+
+    rolling_mean_3h = float(
+        np.mean(
+            [
+                lag_1h,
+                lag_2h,
+                lag_3h
+            ]
+        )
+    )
+
+    # --------------------------------------------------------
+    # Rolling 6h
+    # --------------------------------------------------------
+
+    six_hour_values = []
+
+    for hours_back in range(
+        1,
+        7
+    ):
+
+        value = get_ridership(
+            station_id,
+            timestamp -
+            pd.Timedelta(
+                hours=hours_back
+            )
+        )
+
+        if value is not None:
+
+            six_hour_values.append(
+                value
+            )
+
+    if len(
+        six_hour_values
+    ) < 6:
+
+        raise ValueError(
+            "Insufficient historical observations "
+            "for 6-hour rolling feature."
+        )
+
+    rolling_mean_6h = float(
+        np.mean(
+            six_hour_values
+        )
+    )
+
+    # --------------------------------------------------------
+    # Transfers
+    # --------------------------------------------------------
+
+    transfers = get_transfers(
+        station_id,
+        timestamp
+    )
+
     if transfers is None:
+
         transfers = 0.0
 
-    features = {
-        "ridership": float(current_passenger_count),
-        "ridership_lag_1h": float(lag_1h),
-        "ridership_lag_2h": float(lag_2h),
-        "ridership_lag_3h": float(lag_3h),
-        "rolling_mean_3h": float(rolling_mean_3h),
-        "rolling_mean_6h": float(rolling_mean_6h),
-        "hour": hour,
-        "day_of_week": day_of_week,
-        "is_weekend": is_weekend,
-        "is_morning_peak": is_morning_peak,
-        "is_evening_peak": is_evening_peak,
-        "is_peak_hour": is_peak_hour,
-        "hour_sin": hour_sin,
-        "hour_cos": hour_cos,
-        "day_sin": day_sin,
-        "day_cos": day_cos,
-        "latitude": latitude,
-        "longitude": longitude,
-        "transfers": float(transfers),
-        "station_id_numeric": station_numeric,
-    }
-    return pd.DataFrame([[features[column] for column in FEATURE_COLUMNS]], columns=FEATURE_COLUMNS)
+    # --------------------------------------------------------
+    # Time features
+    # --------------------------------------------------------
 
+    hour = timestamp.hour
+
+    day_of_week = (
+        timestamp.dayofweek
+    )
+
+    is_weekend = int(
+        day_of_week >= 5
+    )
+
+    is_morning_peak = int(
+        hour in [7, 8, 9, 10]
+    )
+
+    is_evening_peak = int(
+        hour in [16, 17, 18, 19, 20]
+    )
+
+    is_peak_hour = int(
+        is_morning_peak
+        or
+        is_evening_peak
+    )
+
+    hour_sin = math.sin(
+        2 *
+        math.pi *
+        hour /
+        24
+    )
+
+    hour_cos = math.cos(
+        2 *
+        math.pi *
+        hour /
+        24
+    )
+
+    day_sin = math.sin(
+        2 *
+        math.pi *
+        day_of_week /
+        7
+    )
+
+    day_cos = math.cos(
+        2 *
+        math.pi *
+        day_of_week /
+        7
+    )
+
+    # --------------------------------------------------------
+    # Station information
+    # --------------------------------------------------------
+
+    station_info = get_station_metadata(
+        station_id
+    )
+
+    latitude = float(
+        station_info["latitude"]
+    )
+
+    longitude = float(
+        station_info["longitude"]
+    )
+
+    # --------------------------------------------------------
+    # EXACT TRAINING FEATURES
+    # --------------------------------------------------------
+
+    features = {
+
+        "ridership":
+            current_ridership,
+
+        "ridership_lag_1h":
+            lag_1h,
+
+        "ridership_lag_2h":
+            lag_2h,
+
+        "ridership_lag_3h":
+            lag_3h,
+
+        "rolling_mean_3h":
+            rolling_mean_3h,
+
+        "rolling_mean_6h":
+            rolling_mean_6h,
+
+        "hour":
+            hour,
+
+        "day_of_week":
+            day_of_week,
+
+        "is_weekend":
+            is_weekend,
+
+        "is_morning_peak":
+            is_morning_peak,
+
+        "is_evening_peak":
+            is_evening_peak,
+
+        "is_peak_hour":
+            is_peak_hour,
+
+        "hour_sin":
+            hour_sin,
+
+        "hour_cos":
+            hour_cos,
+
+        "day_sin":
+            day_sin,
+
+        "day_cos":
+            day_cos,
+
+        "latitude":
+            latitude,
+
+        "longitude":
+            longitude,
+
+        "transfers":
+            transfers,
+
+        "station_id_numeric":
+            station_numeric
+    }
+
+    # --------------------------------------------------------
+    # Preserve exact feature order
+    # --------------------------------------------------------
+
+    X = pd.DataFrame(
+        [[
+            features[column]
+            for column in FEATURE_COLUMNS
+        ]],
+        columns=FEATURE_COLUMNS
+    )
+
+    return X
+
+
+# ============================================================
+# PREDICT
+# ============================================================
 
 def predict_ridership(
     station_id: str,
-    timestamp,
-    current_passenger_count: int,
-    lag_1h: Optional[float] = None,
-    lag_2h: Optional[float] = None,
-    lag_3h: Optional[float] = None,
-    rolling_mean_3h: Optional[float] = None,
-    rolling_mean_6h: Optional[float] = None,
-    transfers: Optional[float] = None,
-) -> float:
-    if MODEL is None:
-        raise RuntimeError("trained model artifacts are not available")
+    timestamp
+):
+
     X = build_features(
-        station_id=station_id,
-        timestamp=timestamp,
-        current_passenger_count=current_passenger_count,
-        lag_1h=lag_1h,
-        lag_2h=lag_2h,
-        lag_3h=lag_3h,
-        rolling_mean_3h=rolling_mean_3h,
-        rolling_mean_6h=rolling_mean_6h,
-        transfers=transfers,
+        station_id,
+        timestamp
     )
-    prediction = MODEL.predict(X)[0]
-    return max(0.0, float(prediction))
+
+    prediction = MODEL.predict(
+        X
+    )[0]
+
+    prediction = max(
+        0,
+        float(prediction)
+    )
+
+    return prediction
